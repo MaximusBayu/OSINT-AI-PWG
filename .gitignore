@@ -38,3 +38,4 @@ checkpoints/
 # --- Cloned external engine (GPL-3.0): keep decoupled, never vendor into this repo ---
 PassLLM/
 ROADMAP.md
+/docs
