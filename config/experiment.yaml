@@ -1,0 +1,33 @@
+# Experiment configuration. Hashed into every GuessRun for reproducibility.
+
+model:
+  base: "Qwen3-4B"
+  lora: { r: 16, alpha: 32 }
+  repo: "https://github.com/Tzohar/PassLLM.git"
+  weights_url: "https://github.com/Tzohar/PassLLM/releases/download/v1.3.0/PassLLM-Qwen3-4B-v1.0.pth"
+  weights_file: "models/PassLLM-Qwen3-4B-v1.0.pth"   # ~126 MB
+  license: "GPL-3.0"                                 # governs use/distribution — see ROADMAP risk register
+  # No self-training (fixed decision). Inference only, via the repo's own app.py.
+
+# PassLLM input schema (FIXED by the model). One JSON object per target, JSONL file.
+# NOTE: no slot for Location or username -> those PII fields cannot be fed to this engine.
+input_schema:
+  fields: [name, birth_year, email, phone, previous_passwords]
+  example: { name: "Test Persona", birth_year: "1990", email: "probe@example.com" }
+
+inference:
+  command: "python app.py --file target.jsonl --weights models/PassLLM-Qwen3-4B-v1.0.pth --fast"
+  run_count: 1
+  keep_ratio: 1.0
+  throughput_target_pw_s: [80, 150]
+
+evaluation:
+  budgets: [100, 1000, 10000]
+  bootstrap_iterations: 1000
+  ci: 0.95
+
+conditions: [C0, C1, C2, C3, C4, C5, C6]
+
+footprint_tiers: [rich, moderate, sparse]
+
+seed: 20260923

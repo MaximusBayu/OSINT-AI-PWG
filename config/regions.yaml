@@ -1,0 +1,14 @@
+# Region -> scraper plugin mapping. Keeps the collection core region-agnostic
+# (fixed decision: mixed / international). Add regions without touching core code.
+
+default:
+  scrapers: []          # general OSINT tools always run regardless of region
+
+regions:
+  id:                   # Indonesia
+    scrapers:
+      - tokopedia
+      - bukalapak
+  # add more regions here, e.g.:
+  # us:
+  #   scrapers: []

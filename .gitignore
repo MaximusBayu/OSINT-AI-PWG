@@ -1,0 +1,40 @@
+Proposal thesis Maximus Bayu.pdf
+
+# --- PII / secrets: NEVER commit ---
+data/*
+!data/README.md
+!data/.gitkeep
+*.key
+*.pem
+.env
+secrets.*
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# --- Tooling ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Notebooks / models ---
+.ipynb_checkpoints/
+*.ckpt
+*.safetensors
+*.pth
+models/
+checkpoints/
+
+# --- Cloned external engine (GPL-3.0): keep decoupled, never vendor into this repo ---
+PassLLM/
+ROADMAP.md
