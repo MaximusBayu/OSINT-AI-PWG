@@ -1,5 +1,12 @@
 # Experiment configuration. Hashed into every GuessRun for reproducibility.
 
+# OSINT collection mode for the web app (env vars override these):
+#   OSINT_MODE=demo|real     — demo simulates; real runs live SpiderFoot
+#   SPIDERFOOT_URL=https://spiderfoot.maxflow.space   — required for real mode
+osint:
+  mode: demo
+  spiderfoot_url: ""
+
 model:
   base: "Qwen3-4B"
   lora: { r: 16, alpha: 32 }

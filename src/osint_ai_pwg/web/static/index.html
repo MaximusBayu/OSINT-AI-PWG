@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>OSINT-AI-PWG demo</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:#0d1117; --surface:#161b22; --surface2:#1c2230; --line:#2a3040;
+    --ink:#e6edf3; --mut:#9aa4b2; --accent:#58a6ff;
+    --ok:#3fb950; --no:#f85149; --warn:#d29922;
+    --radius:12px; --font:'Segoe UI',system-ui,sans-serif;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink); font:14px/1.55 var(--font);
+         padding-bottom:env(safe-area-inset-bottom,0px); }
+  a { color:var(--accent); }
+  .wrap { max-width:900px; margin:0 auto; padding:0 16px; }
+
+  header { background:var(--surface); border-bottom:1px solid var(--line);
+           padding:18px 0 16px; padding-top:calc(18px + env(safe-area-inset-top,0px)); }
+  header .wrap { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  h1 { font-size:18px; color:var(--accent); font-weight:600; }
+  .sub { color:var(--mut); font-size:13px; }
+  .demo { margin-left:auto; font-size:11px; font-weight:600; color:#ffd7a0;
+          background:#3a2a12; border:1px solid #5a4420; padding:3px 10px; border-radius:999px; }
+
+  main { padding:20px 0 60px; }
+  .panel { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+           padding:16px; margin-bottom:16px; }
+  .panel h2 { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--mut);
+              margin-bottom:12px; font-weight:600; }
+  .controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  select, button, input { font:inherit; }
+  select, input { background:var(--surface2); color:var(--ink); border:1px solid var(--line);
+                  border-radius:8px; padding:9px 12px; }
+  select { min-width:200px; }
+  button { border:none; border-radius:8px; padding:9px 16px; font-weight:600; cursor:pointer; }
+  .primary { background:var(--accent); color:#0b1220; }
+  .ghost { background:var(--surface2); color:var(--ink); border:1px solid var(--line); }
+  .primary:hover, .ghost:hover { filter:brightness(1.08); }
+  .mut { color:var(--mut); }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+  .grid label { display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--mut); }
+  .banner { border-radius:8px; padding:9px 12px; font-size:12px; margin-bottom:12px; }
+  .banner.warn { background:#3a2410; color:#ffce8a; border:1px solid #5a4420; }
+  .check { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; }
+
+  .verdict { border-radius:var(--radius); padding:14px 16px; margin-bottom:16px; font-size:14px;
+             border:1px solid var(--line); background:var(--surface2); }
+  .verdict b { color:var(--ink); }
+
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:640px){ .cards { grid-template-columns:1fr; } }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; }
+  .card.full { grid-column:1 / -1; }
+  .card h3 { font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--mut);
+             margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mut); font-weight:600; font-size:12px; }
+  tr:last-child td { border-bottom:none; }
+  code { background:#0b0e14; border:1px solid var(--line); padding:1px 6px; border-radius:6px; font-size:12px; }
+  .pill { font-size:11px; padding:2px 9px; border-radius:999px; background:#0b0e14; border:1px solid var(--line); color:var(--mut); }
+  .ok { color:var(--ok); font-weight:700; } .no { color:var(--no); font-weight:600; }
+  .legend { font-size:12px; color:var(--mut); margin-top:10px; line-height:1.7; }
+  .legend code { color:var(--ink); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>OSINT-AI-PWG</h1>
+    <span class="sub">collect → normalize → guess → evaluate · one target</span>
+    <span class="demo">DEMO · synthetic only</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="panel">
+    <h2>1 · Choose a target</h2>
+    <div class="controls">
+      <select id="target"></select>
+      <button class="primary" id="run">Run (demo)</button>
+      <button class="ghost" id="runReal" hidden>Run — REAL OSINT</button>
+      <button class="ghost" id="toggleAdd">＋ Add self-target</button>
+      <span id="status" class="mut"></span>
+    </div>
+  </div>
+
+  <div id="addCard" class="panel" hidden>
+    <h2>Add a consenting self-target</h2>
+    <div class="banner warn">For <b>you</b> or a consenting person only. Use a <b>throwaway</b>
+      password (stored in a local file), never a real one. OSINT recovery is simulated in demo mode.</div>
+    <div class="grid">
+      <label>ID<input id="f_id" value="self01"></label>
+      <label>Name<input id="f_name" placeholder="Real Name"></label>
+      <label>Username<input id="f_username" placeholder="yourhandle"></label>
+      <label>Email<input id="f_email" placeholder="you@example.com"></label>
+      <label>Birthdate<input id="f_birthdate" type="date"></label>
+      <label>City<input id="f_city" placeholder="YourCity"></label>
+      <label>Phone<input id="f_phone" placeholder="+62..."></label>
+      <label>Throwaway password<input id="f_password" placeholder="Realistic1999"></label>
+      <label>Platforms<input id="f_platforms" value="twitter, instagram, linkedin, github"></label>
+    </div>
+    <label class="check"><input id="f_consent" type="checkbox">
+      <span>I confirm this is me or a consenting person.</span></label>
+    <div class="controls" style="margin-top:12px">
+      <button class="primary" id="create">Create target</button>
+      <span id="addStatus" class="mut"></span>
+    </div>
+  </div>
+
+  <div id="out"></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const pct = x => Math.round(x*100) + '%';
+const esc = s => String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const tcol = {high:'var(--ok)', medium:'var(--warn)', low:'var(--no)'};
+const CONDLABEL = {C0:'no PII (baseline)', C1:'OSINT PII', C2:'ground-truth PII',
+  C3:'OSINT − Identity', C4:'OSINT − Temporal', C5:'OSINT − Location/Contact'};
+
+async function loadTargets(sel) {
+  const d = await (await fetch('/api/targets')).json();
+  $('#target').innerHTML = d.targets.map(t =>
+    `<option value="${t.target_id}">${t.target_id} · ${t.tier}</option>`).join('');
+  if (sel) $('#target').value = sel;
+}
+const kv = o => Object.keys(o).length
+  ? Object.entries(o).map(([k,v])=>`<code>${esc(k)}=${esc(v)}</code>`).join(' ')
+  : '<span class="mut">— empty —</span>';
+
+function verdict(d){
+  const c = Object.fromEntries(d.conditions.map(x=>[x.condition,x]));
+  const c1 = c.C1?.cracked, c2 = c.C2?.cracked;
+  if (c2 && c1) return `<b>Both cracked.</b> OSINT recovered enough PII to match ground truth — target is exposed.`;
+  if (c2 && !c1) return `<b>Noise penalty visible.</b> Full PII (C2) cracked it, but noisy OSINT (C1) missed — the OSINT gap is exactly what RQ2 measures.`;
+  if (!c2) return `<b>Nothing cracked, even with full PII.</b> This password isn't in the demo engine's pattern set (it only knows name+birth-year forms). Try a password like <code>Name1999</code>, or wire real PassLLM.`;
+  return '';
+}
+
+function render(d){
+  const s = d.profile_summary || {fields:0,avg_confidence:0,tier:'low'};
+  const obs = d.observations.length
+    ? d.observations.map(o=>`<tr><td>${esc(o.field)}</td><td><code>${esc(o.value)}</code></td>
+        <td class="mut">${esc(o.source)}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="mut">nothing recovered</td></tr>';
+  const prof = Object.keys(d.profile).length
+    ? Object.entries(d.profile).map(([f,p])=>`<tr><td>${esc(f)}</td><td><code>${esc(p.value)}</code></td>
+        <td style="color:${tcol[p.tier]||'var(--mut)'}">${pct(p.confidence)}</td>
+        <td class="mut">${p.sources} src</td></tr>`).join('')
+    : '<tr><td colspan="4" class="mut">empty profile</td></tr>';
+  const conds = d.conditions.map(x=>`<tr>
+      <td><span class="pill">${x.condition}</span></td>
+      <td class="mut">${CONDLABEL[x.condition]||''}</td>
+      <td>${kv(x.pii_sent)}</td>
+      <td>${x.cracked ? `<span class="ok">CRACKED</span> <span class="mut">#${x.guess_number}</span>`
+                      : '<span class="no">missed</span>'}</td></tr>`).join('');
+
+  $('#out').innerHTML = `
+    <div class="verdict">${verdict(d)}</div>
+    <div class="cards">
+      <div class="card"><h3>Target</h3>
+        <p><code>${esc(d.target_id)}</code> <span class="pill">${esc(d.footprint_tier)} footprint</span></p>
+        <p class="mut" style="margin-top:6px">crack budget: ${d.budget} guesses</p></div>
+      <div class="card"><h3>Seed · known start</h3>${kv(d.seed)}</div>
+      <div class="card full"><h3>OSINT observations · simulated recovery</h3>
+        <table><tr><th>field</th><th>value</th><th>source</th></tr>${obs}</table></div>
+      <div class="card full"><h3>Normalized profile
+        <span class="pill" style="color:${tcol[s.tier]}">${s.fields} fields · avg ${pct(s.avg_confidence)} · ${s.tier.toUpperCase()}</span></h3>
+        <table><tr><th>field</th><th>value</th><th>conf</th><th></th></tr>${prof}</table></div>
+      <div class="card full"><h3>Conditions → crack result</h3>
+        <table><tr><th>cond</th><th>meaning</th><th>PII sent to engine</th><th>result</th></tr>${conds}</table>
+        <div class="legend">
+          <b>C1</b> = real (noisy OSINT) · <b>C2</b> = perfect PII (ceiling) · gap = noise penalty (RQ2).<br>
+          <b>C3/C4/C5</b> drop one PII group — whichever break the crack are the load-bearing groups (RQ3).
+        </div></div>
+    </div>`;
+}
+
+$('#toggleAdd').onclick = () => { $('#addCard').hidden = !$('#addCard').hidden; };
+
+$('#create').onclick = async () => {
+  const v = id => $('#f_'+id).value.trim();
+  const body = { id:v('id'), name:v('name'), username:v('username'), email:v('email'),
+    birthdate:v('birthdate'), city:v('city'), phone:v('phone'), password:v('password'),
+    platforms:v('platforms'), consent:$('#f_consent').checked };
+  $('#addStatus').textContent = 'creating…';
+  const r = await fetch('/api/self-target', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const d = await r.json();
+  if(!r.ok){ $('#addStatus').innerHTML = `<span class="no">${esc(d.detail)}</span>`; return; }
+  $('#addStatus').innerHTML = `<span class="ok">created ${esc(d.target_id)}</span> · ${esc(d.tier)}`;
+  await loadTargets(d.target_id);
+};
+
+$('#run').onclick = async () => {
+  $('#status').textContent = 'running…';
+  const r = await fetch('/api/run', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({target_id:$('#target').value})});
+  $('#status').textContent = '';
+  if(!r.ok){ $('#out').innerHTML = `<div class="verdict no">refused: ${esc((await r.json()).detail)}</div>`; return; }
+  render(await r.json());
+};
+
+$('#runReal').onclick = async () => {
+  const r = await fetch('/api/collect', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({target_id:$('#target').value})});
+  const d = await r.json();
+  if(!r.ok){ $('#out').innerHTML = `<div class="verdict no">refused: ${esc(d.detail)}</div>`; return; }
+  const jid = d.job_id;
+  const poll = async () => {
+    const j = await (await fetch('/api/job/'+jid)).json();
+    if (j.status === 'running') {
+      $('#status').innerHTML = `<span class="mut">real scan… ${j.progress||0}% · ${esc(j.message||'')}</span>`;
+      setTimeout(poll, 1500);
+    } else if (j.status === 'done') {
+      $('#status').textContent = '';
+      render(j.result);
+    } else {
+      $('#status').textContent = '';
+      $('#out').innerHTML = `<div class="verdict no">scan failed: ${esc(j.error||'error')}</div>`;
+    }
+  };
+  $('#status').textContent = 'starting real scan…';
+  poll();
+};
+
+async function initMode(){
+  try {
+    const c = await (await fetch('/api/config')).json();
+    if (c.real_available) {
+      $('#runReal').hidden = false;
+      $('.demo').textContent = 'REAL MODE · live OSINT';
+      $('.demo').style.color = '#ffb3b3';
+      $('.demo').style.background = '#3a1414';
+      $('.demo').style.borderColor = '#5a2020';
+    }
+  } catch(e) {}
+}
+
+loadTargets();
+initMode();
+</script>
+</body>
+</html>

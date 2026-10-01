@@ -27,6 +27,10 @@ dev = [
 analysis = [
     "matplotlib>=3.8",
 ]
+web = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

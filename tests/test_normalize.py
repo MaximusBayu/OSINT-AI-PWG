@@ -45,6 +45,22 @@ def test_empty_and_tier_passthrough() -> None:
     assert tagged.footprint_tier is FootprintTier.RICH
 
 
+def test_profile_summary_tiers() -> None:
+    from osint_ai_pwg.normalize.summary import confidence_tier, profile_summary
+    from osint_ai_pwg.schemas import NormalizedProfile, ProfileField
+
+    assert confidence_tier(0.8) == "high"
+    assert confidence_tier(0.5) == "medium"
+    assert confidence_tier(0.2) == "low"
+
+    prof = NormalizedProfile("t01", {
+        "a": ProfileField("x", 0.8, 2), "b": ProfileField("y", 0.4, 1),
+    })
+    s = profile_summary(prof)
+    assert s["fields"] == 2 and s["avg_confidence"] == 0.6 and s["tier"] == "medium"
+    assert profile_summary(NormalizedProfile("t0", {}))["tier"] == "low"   # empty
+
+
 def test_inferred_lower_than_stated() -> None:
     stated = normalize([_obs("city", "Jakarta", "spiderfoot:x")])
     inferred = normalize([

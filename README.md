@@ -70,6 +70,22 @@ bash scripts/setup_kali.sh
 python scripts/verify_checkpoint.py
 ```
 
+### Web demo (research, synthetic targets only)
+
+Single-target UI: pick a synthetic persona → watch it flow through collect → normalize →
+guess → evaluate, with each condition's crack result shown. Runs **offline in demo mode**
+(simulated OSINT recovery + a PII-pattern guesser standing in for PassLLM); swap in the real
+orchestrator + PassLLM on VPS/Colab without touching the web layer.
+
+```bash
+pip install -e '.[web]'
+python -m osint_ai_pwg.personas.generate -n 15 --out data/ground_truth   # roster
+uvicorn osint_ai_pwg.web.app:app --reload                                # http://127.0.0.1:8000
+```
+
+Guardrail: the UI can only run targets already in your synthetic roster — no arbitrary-target
+input, enforced server-side (`TargetNotAllowed`). It is not a "type a person → get password" tool.
+
 Pipeline in code:
 
 ```python
