@@ -13,9 +13,10 @@ from __future__ import annotations
 import math
 import random
 from collections.abc import Sequence
+from statistics import NormalDist
 
 from osint_ai_pwg.evaluate.metrics import cracked_within, crack_rate
-from osint_ai_pwg.schemas import GuessRun
+from osint_ai_pwg.schemas import ConfidenceTier, GuessRun, confidence_tier_of
 
 
 def passwords_from_ground_truth(gts) -> dict[str, str]:
@@ -75,15 +76,67 @@ def bootstrap_ci(
     return (point, _percentile(rates, alpha), _percentile(rates, 1 - alpha))
 
 
+def bootstrap_ci_bca(
+    runs: Sequence[GuessRun],
+    passwords: dict[str, str],
+    budget: int,
+    iters: int = 1000,
+    ci: float = 0.95,
+    seed: int = 20260923,
+) -> tuple[float, float, float]:
+    """(point, lo, hi) crack rate with a bias-corrected and accelerated (BCa) bootstrap CI.
+
+    BCa corrects for both bias and skewness and is more reliable than the percentile method
+    at the pilot's small n (revised design). Falls back to percentiles when the correction is
+    degenerate (all resamples equal, or zero jackknife variance).
+    """
+    pairs = _pairs(runs, passwords)
+    n = len(pairs)
+    point = crack_rate(pairs, budget)
+    if n == 0:
+        return (0.0, 0.0, 0.0)
+
+    rng = random.Random(seed)
+    boot = sorted(
+        crack_rate([pairs[rng.randrange(n)] for _ in range(n)], budget) for _ in range(iters)
+    )
+    alpha = (1 - ci) / 2
+
+    # Bias-correction z0 from the fraction of resamples below the point estimate.
+    n_less = sum(1 for r in boot if r < point)
+    prop = n_less / iters
+    nd = NormalDist()
+    if prop <= 0.0 or prop >= 1.0:
+        return (point, _percentile(boot, alpha), _percentile(boot, 1 - alpha))
+    z0 = nd.inv_cdf(prop)
+
+    # Acceleration a from the jackknife of the crack rate over targets.
+    jack = [crack_rate(pairs[:i] + pairs[i + 1:], budget) for i in range(n)]
+    jmean = sum(jack) / n
+    num = sum((jmean - x) ** 3 for x in jack)
+    den = 6.0 * (sum((jmean - x) ** 2 for x in jack) ** 1.5)
+    if den == 0:
+        return (point, _percentile(boot, alpha), _percentile(boot, 1 - alpha))
+    a = num / den
+
+    def adjust(z_alpha: float) -> float:
+        return nd.cdf(z0 + (z0 + z_alpha) / (1 - a * (z0 + z_alpha)))
+
+    lo_q = adjust(nd.inv_cdf(alpha))
+    hi_q = adjust(nd.inv_cdf(1 - alpha))
+    return (point, _percentile(boot, lo_q), _percentile(boot, hi_q))
+
+
 def paired_delta(
     runs_a: Sequence[GuessRun],
     runs_b: Sequence[GuessRun],
     passwords: dict[str, str],
     budget: int,
 ) -> dict:
-    """Per-target and mean (cracked_A - cracked_B) at budget. RQ2: A=OSINT (C1), B=ground truth (C2).
+    """Per-target and mean (cracked_A - cracked_B) at a budget. Generic paired comparison.
 
-    A negative mean = the OSINT noise penalty (fewer cracks than ground truth).
+    For the revised-design noise penalty use `noise_penalty` (which fixes the sign so a
+    positive value = OSINT below ground truth).
     """
     a = {r.target_id: r.guesses for r in runs_a}
     b = {r.target_id: r.guesses for r in runs_b}
@@ -95,6 +148,50 @@ def paired_delta(
     }
     mean = sum(per.values()) / len(per) if per else 0.0
     return {"per_target": per, "mean": mean, "n": len(per)}
+
+
+def noise_penalty(
+    osint_runs: Sequence[GuessRun],
+    ground_truth_runs: Sequence[GuessRun],
+    passwords: dict[str, str],
+    budget: int,
+) -> dict:
+    """RQ2 noise penalty Gamma_noise = CR_gt - CR_osint (revised design, = C3 - C2).
+
+    Positive mean = OSINT PII cracks fewer targets than ground truth (the noise cost).
+    """
+    gt = paired_delta(ground_truth_runs, osint_runs, passwords, budget)
+    return gt
+
+
+def crack_rate_by_confidence_tier(
+    runs: Sequence[GuessRun],
+    passwords: dict[str, str],
+    tier_by_target: dict[str, ConfidenceTier],
+    budget: int,
+) -> dict[str, float]:
+    """Condition C5 validation: crack rate stratified by a target's confidence tier.
+
+    If the normalization layer is sound, High-tier targets crack more than Low-tier.
+    """
+    buckets: dict[str, list[GuessRun]] = {}
+    for r in runs:
+        tier = tier_by_target.get(r.target_id)
+        if tier is not None:
+            buckets.setdefault(tier.value, []).append(r)
+    return {tier: condition_crack_rate(rs, passwords, budget) for tier, rs in buckets.items()}
+
+
+def confidence_tiers_from_profiles(profiles, high: float = 0.70, medium: float = 0.40) -> dict[str, ConfidenceTier]:
+    """Map each profile's average field confidence to a ConfidenceTier (for C5)."""
+    out: dict[str, ConfidenceTier] = {}
+    for p in profiles:
+        if p.fields:
+            avg = sum(pf.confidence for pf in p.fields.values()) / len(p.fields)
+        else:
+            avg = 0.0
+        out[p.target_id] = confidence_tier_of(avg, high, medium)
+    return out
 
 
 def ablation_delta(

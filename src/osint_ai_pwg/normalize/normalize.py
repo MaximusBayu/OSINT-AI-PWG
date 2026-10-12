@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from osint_ai_pwg.normalize.confidence import confidence
+from osint_ai_pwg.normalize.confidence import DIRECTNESS_SCORE, confidence
 from osint_ai_pwg.normalize.reliability import grade_for
 from osint_ai_pwg.schemas import (
     Directness,
@@ -27,17 +27,17 @@ from osint_ai_pwg.schemas import (
 def _resolve_field(obs_list: list[Observation]) -> tuple[str, int, str, Directness]:
     """Pick the best-supported value for one field and its confidence inputs.
 
-    Returns (value, n_distinct_sources, best_grade, directness).
+    Returns (value, n_distinct_sources, best_grade, directness). Directness is the
+    STRONGEST level observed for the chosen value (revised 4-level continuum).
     """
     sources_by_value: dict[str, set[str]] = defaultdict(set)
     grades_by_value: dict[str, list[str]] = defaultdict(list)
-    stated_by_value: dict[str, bool] = defaultdict(bool)
+    directness_by_value: dict[str, list[Directness]] = defaultdict(list)
 
     for o in obs_list:
         sources_by_value[o.value].add(o.source)
         grades_by_value[o.value].append(grade_for(o.source))
-        if o.directness is Directness.STATED:
-            stated_by_value[o.value] = True
+        directness_by_value[o.value].append(o.directness)
 
     def score(v: str) -> tuple[int, int]:
         # most distinct sources wins; tie-break on best (lowest) Admiralty grade
@@ -47,7 +47,8 @@ def _resolve_field(obs_list: list[Observation]) -> tuple[str, int, str, Directne
     best = max(sources_by_value, key=score)
     n = len(sources_by_value[best])
     grade = min(grades_by_value[best])
-    directness = Directness.STATED if stated_by_value[best] else Directness.INFERRED
+    # Strongest directness seen for this value (highest score on the 4-level continuum).
+    directness = max(directness_by_value[best], key=lambda d: DIRECTNESS_SCORE.get(d, 0.2))
     return best, n, grade, directness
 
 

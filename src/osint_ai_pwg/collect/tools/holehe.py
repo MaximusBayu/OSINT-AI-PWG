@@ -34,7 +34,7 @@ class HoleheCollector(SubprocessCollector):
                 Observation(
                     target_id=target_id,
                     field="email",
-                    group=FieldGroup.CONTACT,
+                    group=FieldGroup.IDENTITY,   # revised taxonomy: email is Identity
                     value=email,
                     source=f"holehe:{site.strip().lower()}",
                     directness=Directness.STATED,

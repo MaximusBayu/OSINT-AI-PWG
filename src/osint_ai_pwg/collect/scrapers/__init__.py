@@ -1,8 +1,9 @@
 """Region scraper plugins. Selected per config/regions.yaml so the core stays region-agnostic.
 
-Each scraper is a Collector. The Indonesian plugins (tokopedia, bukalapak) are stubs here;
-their real scraping is implemented on the collection host in Phase 2a (needs live access +
-BeautifulSoup). Keeping them as no-op Collectors proves the plugin wiring end to end.
+Revised design 2026-10: Western target region. The custom scrapers (linkedin, github)
+extract bio/location/name from public profile pages — signal the general tools miss. They
+are stubs here; real BeautifulSoup scraping is implemented on the collection host in Phase
+2a (needs live access). Keeping them as no-op Collectors proves the plugin wiring end to end.
 """
 
 from __future__ import annotations
@@ -21,16 +22,16 @@ class _StubScraper(Collector):
         return []
 
 
-class TokopediaScraper(_StubScraper):
-    name = "tokopedia"
+class LinkedInScraper(_StubScraper):
+    name = "linkedin"
 
 
-class BukalapakScraper(_StubScraper):
-    name = "bukalapak"
+class GitHubScraper(_StubScraper):
+    name = "github"
 
 
 # name (as used in config/regions.yaml) -> scraper class
 REGION_SCRAPERS: dict[str, type[Collector]] = {
-    "tokopedia": TokopediaScraper,
-    "bukalapak": BukalapakScraper,
+    "linkedin": LinkedInScraper,
+    "github": GitHubScraper,
 }

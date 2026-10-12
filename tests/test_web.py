@@ -35,9 +35,11 @@ def test_run_demo_structure_and_c2_full() -> None:
     tid = next(iter(roster))
     out = run_demo(tid, roster)
     conds = {c["condition"]: c for c in out["conditions"]}
-    assert set(conds) == {"C0", "C1", "C2", "C3", "C4", "C5"}
-    assert conds["C0"]["pii_sent"] == {}                 # baseline empty
-    assert conds["C2"]["pii_sent"]                        # C2 gets full ground-truth PII
+    assert set(conds) == {"C0", "C1", "C2", "C3", "C4a", "C4b", "C4c", "C4d"}
+    assert conds["C0"]["pii_sent"] == {}                 # empty-prompt baseline
+    assert conds["C1"]["pii_sent"] == {}                 # trawling: no PII
+    assert conds["C2"]["pii_sent"]                        # C2 = full OSINT PII
+    assert conds["C3"]["pii_sent"]                        # C3 = full ground-truth PII
 
 
 def test_c2_cracks_pii_laden_and_c0_does_not() -> None:

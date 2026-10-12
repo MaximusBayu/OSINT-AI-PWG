@@ -1,14 +1,14 @@
-# Region -> scraper plugin mapping. Keeps the collection core region-agnostic
-# (fixed decision: mixed / international). Add regions without touching core code.
+# Region -> custom scraper plugin mapping. Keeps the collection core region-agnostic.
+# Revised design 2026-10: Western targets (Twitter/X, Instagram, LinkedIn, GitHub).
+# General OSINT tools (Sherlock, Holehe, theHarvester, SpiderFoot) always run regardless.
 
 default:
   scrapers: []          # general OSINT tools always run regardless of region
 
 regions:
-  id:                   # Indonesia
+  western:              # revised-design target region (English-speaking)
     scrapers:
-      - tokopedia
-      - bukalapak
-  # add more regions here, e.g.:
-  # us:
-  #   scrapers: []
+      - linkedin        # profile bio/location/employer extraction
+      - github          # profile bio/location/name extraction
+  # add more regions here without touching core code, e.g.:
+  # id:  { scrapers: [tokopedia, bukalapak] }   # (previous Indonesian pilot)

@@ -24,7 +24,7 @@ name = "spiderfoot"
 
 # SpiderFoot event type -> (our field, group). Only PII we can use downstream.
 SF_MAP: dict[str, tuple[str, FieldGroup]] = {
-    "EMAILADDR": ("email", FieldGroup.CONTACT),
+    "EMAILADDR": ("email", FieldGroup.IDENTITY),   # revised taxonomy: email is Identity
     "HUMAN_NAME": ("name", FieldGroup.IDENTITY),
     "USERNAME": ("username", FieldGroup.IDENTITY),
     "ACCOUNT_EXTERNAL_OWNED": ("username", FieldGroup.IDENTITY),

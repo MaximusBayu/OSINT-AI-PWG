@@ -61,3 +61,100 @@ def test_ablation_delta_rq3() -> None:
 def test_passwords_from_ground_truth() -> None:
     gts = [GroundTruth("t01", FootprintTier.SPARSE, {"Identity": {"name": "A"}}, "pw", PasswordKind.RANDOM)]
     assert passwords_from_ground_truth(gts) == {"t01": "pw"}
+
+
+# --- Revised design 2026-10: new eval math ---
+
+
+def test_precision_recall_f1() -> None:
+    from osint_ai_pwg.evaluate.metrics import precision_recall_f1
+
+    m = precision_recall_f1(correct=3, collected=4, ground_truth=6)
+    assert m["precision"] == 0.75 and m["recall"] == 0.5
+    assert abs(m["f1"] - 0.6) < 1e-9
+    zero = precision_recall_f1(0, 0, 0)
+    assert zero == {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+
+
+def test_jaccard_stability() -> None:
+    from osint_ai_pwg.evaluate.metrics import jaccard
+
+    assert jaccard(["a", "b"], ["a", "b"]) == 1.0            # identical -> stable
+    assert jaccard(["a", "b"], ["b", "c"]) == 1 / 3          # |{b}| / |{a,b,c}|
+    assert jaccard([], []) == 1.0                            # nothing collected either run
+    assert jaccard(["a"], []) == 0.0
+
+
+def test_cohens_g_and_cv() -> None:
+    from osint_ai_pwg.evaluate.metrics import coefficient_of_variation, cohens_g
+
+    assert cohens_g(0.75) == 0.25
+    assert cohens_g(0.5) == 0.0
+    assert coefficient_of_variation([0.4, 0.4, 0.4]) == 0.0  # no variance
+    assert coefficient_of_variation([]) == 0.0
+    assert coefficient_of_variation([0.2, 0.4, 0.6]) > 0.0
+
+
+def test_bca_ci_brackets_point() -> None:
+    from osint_ai_pwg.evaluate.harness import bootstrap_ci_bca
+
+    runs = [_run(t, ["x", "y", PW[t]]) for t in PW]          # all cracked at rank 3
+    point, lo, hi = bootstrap_ci_bca(runs, PW, budget=100, iters=200, seed=1)
+    assert point == 1.0 and 0.0 <= lo <= point <= hi <= 1.0
+
+
+def test_noise_penalty_positive() -> None:
+    from osint_ai_pwg.evaluate.harness import noise_penalty
+
+    osint = [_run("t01", ["secret"]), _run("t02", ["nope"])]            # cracks t01 only
+    gt = [_run("t01", ["secret"], Condition.C3), _run("t02", ["hunter2"], Condition.C3)]  # both
+    d = noise_penalty(osint, gt, PW, budget=100)
+    assert d["mean"] == 0.5 and d["per_target"]["t02"] == 1   # gt - osint, positive
+
+
+def test_crack_rate_by_confidence_tier() -> None:
+    from osint_ai_pwg.evaluate.harness import (
+        confidence_tiers_from_profiles,
+        crack_rate_by_confidence_tier,
+    )
+    from osint_ai_pwg.schemas import NormalizedProfile, ProfileField
+
+    profiles = [
+        NormalizedProfile("t01", {"name": ProfileField("A", 0.9, 3)}),   # High
+        NormalizedProfile("t02", {"name": ProfileField("B", 0.2, 1)}),   # Low
+    ]
+    tiers = confidence_tiers_from_profiles(profiles)
+    assert tiers["t01"].value == "high" and tiers["t02"].value == "low"
+
+    runs = [_run("t01", ["secret"], Condition.C5), _run("t02", ["nope"], Condition.C5)]
+    by_tier = crack_rate_by_confidence_tier(runs, PW, tiers, budget=100)
+    assert by_tier == {"high": 1.0, "low": 0.0}              # high-confidence cracks, low doesn't
+
+
+def test_collection_quality_field_quality() -> None:
+    from osint_ai_pwg.evaluate.collection_quality import field_quality
+    from osint_ai_pwg.schemas import FieldGroup, Observation
+
+    obs = [
+        Observation("t01", "name", FieldGroup.IDENTITY, "Alex P", "sherlock:twitter"),
+        Observation("t01", "name", FieldGroup.IDENTITY, "Alex Wrong", "spiderfoot:x"),   # noise
+        Observation("t01", "email", FieldGroup.IDENTITY, "alex@example.com", "holehe:y"),
+    ]
+    gt = {"name": "Alex P", "email": "alex@example.com", "phone": "+1555"}
+    q = field_quality(obs, gt)
+    assert q["name"]["precision"] == 0.5 and q["name"]["recall"] == 1.0   # 1 of 2 values correct
+    assert q["email"]["f1"] == 1.0                                        # clean recovery
+    assert q["phone"] == {"precision": 0.0, "recall": 0.0, "f1": 0.0}     # omission
+
+
+def test_collection_quality_field_stability() -> None:
+    from osint_ai_pwg.evaluate.collection_quality import field_stability
+    from osint_ai_pwg.schemas import FieldGroup, Observation
+
+    def o(field, value):
+        return Observation("t01", field, FieldGroup.IDENTITY, value, "sherlock:x")
+
+    run1 = [o("name", "Alex P"), o("email", "a@x.com")]
+    run2 = [o("name", "Alex P")]                              # email dropped second run
+    stab = field_stability(run1, run2)
+    assert stab["name"] == 1.0 and stab["email"] == 0.0

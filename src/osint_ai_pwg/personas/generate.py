@@ -20,10 +20,11 @@ from osint_ai_pwg.personas.schema import GroundTruth, PasswordKind, validate
 from osint_ai_pwg.personas.tiers import classify
 from osint_ai_pwg.schemas import FootprintTier
 
-_FIRST = ["Alex", "Sam", "Rina", "Budi", "Maya", "Toni", "Nadia", "Eko", "Lisa", "Dedi"]
-_LAST = ["Persona", "Test", "Sample", "Contoh", "Dummy", "Mock"]
-_CITY = ["Examplecity", "Testville", "Jakarta", "Bandung", "Sampletown"]
-_PLATFORMS = ["twitter", "instagram", "linkedin", "tokopedia", "github", "facebook"]
+# Revised design 2026-10: Western/English-speaking synthetic personas.
+_FIRST = ["Alex", "Sam", "Emma", "Jack", "Maya", "Tom", "Nadia", "Evan", "Lisa", "Dean"]
+_LAST = ["Persona", "Test", "Sample", "Example", "Dummy", "Mock"]
+_CITY = ["Springfield", "Testville", "Portland", "Riverton", "Sampletown"]
+_PLATFORMS = ["twitter", "instagram", "linkedin", "github", "facebook", "reddit"]
 
 # How many populated groups + platforms each tier gets (must satisfy tiers.CRITERIA).
 _TIER_PLAN: dict[FootprintTier, tuple[int, int]] = {
@@ -42,7 +43,7 @@ def _make_pii(rng: random.Random, n_groups: int) -> dict[str, dict[str, str]]:
     all_groups = [
         ("Identity", {"name": f"{first} {last}", "username": handle}),
         ("Temporal", {"birthdate": f"{year}-{rng.randint(1,12):02d}-{rng.randint(1,28):02d}"}),
-        ("Contact", {"email": f"{handle}@example.com", "phone": f"+62{rng.randint(10**8, 10**9-1)}"}),
+        ("Contact", {"email": f"{handle}@example.com", "phone": f"+1{rng.randint(2*10**9, 10**10-1)}"}),
         ("Location", {"city": rng.choice(_CITY)}),
     ]
     return {g: fields for g, fields in all_groups[:n_groups]}

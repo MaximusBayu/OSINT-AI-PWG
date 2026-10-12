@@ -41,7 +41,7 @@ def test_maps_events_to_observations() -> None:
     obs = c.collect("t01", {"email": "rina@example.com"})
     by_field = {o.field: o for o in obs}
     assert set(by_field) == {"email", "name", "phone"}       # malicious event dropped
-    assert by_field["email"].group is FieldGroup.CONTACT
+    assert by_field["email"].group is FieldGroup.IDENTITY   # email is Identity (revised)
     assert by_field["name"].source == "spiderfoot:sfp_fullcontact"
 
 

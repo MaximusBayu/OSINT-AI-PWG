@@ -12,18 +12,20 @@ from pathlib import Path
 
 from osint_ai_pwg.evaluate.harness import (
     ablation_delta,
-    bootstrap_ci,
+    bootstrap_ci_bca,
     condition_crack_rate,
+    crack_rate_by_confidence_tier,
     guess_number_curve,
-    paired_delta,
+    noise_penalty,
 )
-from osint_ai_pwg.schemas import Condition, FootprintTier, GuessRun
+from osint_ai_pwg.schemas import Condition, ConfidenceTier, FootprintTier, GuessRun
 
-# Which group each ablation condition removes (RQ3 labels).
+# Which group each ablation condition removes (RQ3 labels). Revised design: C4a-C4d.
 _ABLATION_LABEL = {
-    Condition.C3: "Identity",
-    Condition.C4: "Temporal",
-    Condition.C5: "Location+Contact",
+    Condition.C4A: "Identity",
+    Condition.C4B: "Temporal",
+    Condition.C4C: "Location",
+    Condition.C4D: "Contact",
 }
 
 
@@ -49,34 +51,46 @@ def build_report(
     tiers: dict[str, FootprintTier],
     budgets: list[int],
     primary_budget: int,
+    confidence_tiers: dict[str, ConfidenceTier] | None = None,
 ) -> dict:
-    """Assemble the descriptive results report (JSON-serializable)."""
+    """Assemble the descriptive results report (JSON-serializable).
+
+    Revised design: OSINT condition = C2, ground truth = C3, grouped ablations = C4a-C4d.
+    CIs use the BCa bootstrap. RQ2 reports Gamma_noise = CR_gt - CR_osint (positive = the
+    OSINT noise cost). Pass `confidence_tiers` to emit the C5 tier-stratified crack rates.
+    """
     report: dict = {"primary_budget": primary_budget, "conditions": {}}
 
     for cond, runs in results.items():
         report["conditions"][cond.value] = {
             "crack_rate": {str(b): condition_crack_rate(runs, passwords, b) for b in budgets},
             "gnc": [[b, r] for b, r in guess_number_curve(runs, passwords, budgets)],
-            "ci95": list(bootstrap_ci(runs, passwords, primary_budget)),
+            "ci95": list(bootstrap_ci_bca(runs, passwords, primary_budget)),
         }
 
-    if Condition.C1 in results:
+    if Condition.C2 in results:
         report["rq1_by_tier"] = crack_rate_by_tier(
-            results[Condition.C1], passwords, tiers, primary_budget
+            results[Condition.C2], passwords, tiers, primary_budget
         )
 
-    if Condition.C1 in results and Condition.C2 in results:
-        report["rq2_noise_penalty"] = paired_delta(
-            results[Condition.C1], results[Condition.C2], passwords, primary_budget
+    if Condition.C2 in results and Condition.C3 in results:
+        report["rq2_noise_penalty"] = noise_penalty(
+            results[Condition.C2], results[Condition.C3], passwords, primary_budget
         )
 
     rq3: dict[str, float] = {}
     for cond, label in _ABLATION_LABEL.items():
-        if cond in results and Condition.C1 in results:
+        if cond in results and Condition.C2 in results:
             rq3[label] = ablation_delta(
-                results[Condition.C1], results[cond], passwords, primary_budget
+                results[Condition.C2], results[cond], passwords, primary_budget
             )
     report["rq3_group_delta"] = rq3
+
+    # C5: crack rate stratified by confidence tier (normalization-layer validation).
+    if confidence_tiers and Condition.C5 in results:
+        report["c5_by_confidence_tier"] = crack_rate_by_confidence_tier(
+            results[Condition.C5], passwords, confidence_tiers, primary_budget
+        )
     return report
 
 

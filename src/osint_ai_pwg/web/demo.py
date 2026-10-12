@@ -22,9 +22,10 @@ _RECALL = {"rich": 0.9, "moderate": 0.6, "sparse": 0.3}
 # Field -> its group, for emitting Observations.
 _GROUP = {
     "name": FieldGroup.IDENTITY, "username": FieldGroup.IDENTITY,
+    "email": FieldGroup.IDENTITY,          # revised taxonomy: email is Identity
     "birthdate": FieldGroup.TEMPORAL,
     "city": FieldGroup.LOCATION,
-    "email": FieldGroup.CONTACT, "phone": FieldGroup.CONTACT,
+    "phone": FieldGroup.CONTACT,
 }
 
 

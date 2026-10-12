@@ -6,14 +6,16 @@ account-existence tools (sherlock, holehe) are graded higher than broad aggregat
 
 from __future__ import annotations
 
-# tool prefix (before ':' in a source tag) -> Admiralty reliability grade
+# tool prefix (before ':' in a source tag) -> Admiralty reliability grade.
+# Revised design: established platforms (LinkedIn) carry higher inherent reliability than
+# broad aggregators or opportunistic inference.
 SOURCE_GRADE: dict[str, str] = {
     "sherlock": "B",
     "holehe": "B",
+    "linkedin": "B",      # established professional platform
+    "github": "B",        # verified profile data
     "theharvester": "C",
     "spiderfoot": "C",
-    "tokopedia": "C",
-    "bukalapak": "C",
 }
 DEFAULT_GRADE = "D"
 

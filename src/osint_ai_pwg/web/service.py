@@ -19,7 +19,12 @@ from osint_ai_pwg.collect.tools.spiderfoot import SpiderFootCollector
 from osint_ai_pwg.web.demo import DemoCollector, DemoEngine
 from osint_ai_pwg.schemas import Condition, NormalizedProfile, Observation, ProfileField
 
-_CONDITIONS = [Condition.C0, Condition.C1, Condition.C2, Condition.C3, Condition.C4, Condition.C5]
+# Demo subset (revised design). Engine-only conditions (C0b base-no-LoRA, C5 tier-strat,
+# C6 Hashcat, C7 random) are out of the demo's scope.
+_CONDITIONS = [
+    Condition.C0, Condition.C1, Condition.C2, Condition.C3,
+    Condition.C4A, Condition.C4B, Condition.C4C, Condition.C4D,
+]
 _TOP_N = 8          # how many guesses to surface in the UI
 _BUDGET = 1000      # crack budget for the demo
 
@@ -79,7 +84,7 @@ def load_roster(ground_truth_dir: Path) -> dict[str, GroundTruth]:
 
 
 def _gt_profile(gt: GroundTruth) -> NormalizedProfile:
-    """Full ground-truth PII as a profile (confidence 1.0) — the C2 input."""
+    """Full ground-truth PII as a profile (confidence 1.0) — the C3 input (revised design)."""
     fields = {
         f: ProfileField(v, 1.0, 99)
         for group in gt.pii.values() for f, v in group.items()
@@ -88,11 +93,12 @@ def _gt_profile(gt: GroundTruth) -> NormalizedProfile:
 
 
 def _obj_for(cond: Condition, osint: NormalizedProfile, gt_prof: NormalizedProfile) -> dict[str, str]:
-    if cond is Condition.C0:
+    # Revised design: C0/C1 send no PII; C3 is full ground truth; C2 + C4a-d come from OSINT.
+    if cond in (Condition.C0, Condition.C1):
         return {}
-    if cond is Condition.C2:
-        return build_passllm_object(gt_prof, Condition.C1)   # full ground truth, no ablation
-    return build_passllm_object(osint, cond)                 # C1 / C3 / C4 / C5 from OSINT
+    if cond is Condition.C3:
+        return build_passllm_object(gt_prof, Condition.C2)   # full GT, no ablation (C2 = full sentinel)
+    return build_passllm_object(osint, cond)                 # C2 full OSINT, or C4a-d ablations
 
 
 def _assemble_result(

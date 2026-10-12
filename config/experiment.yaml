@@ -1,39 +1,54 @@
 # Experiment configuration. Hashed into every GuessRun for reproducibility.
+# Revised design 2026-10 (Password_guess_test.pdf): Western targets, 9-field schema,
+# 12 conditions, aggressive inference params.
 
 # OSINT collection mode for the web app (env vars override these):
 #   OSINT_MODE=demo|real     — demo simulates; real runs live SpiderFoot
 #   SPIDERFOOT_URL=https://spiderfoot.maxflow.space   — required for real mode
+#   region=western           — selects custom scrapers via config/regions.yaml
 osint:
   mode: demo
   spiderfoot_url: ""
+  region: western
 
 model:
-  base: "Qwen3-4B"
+  base: "Qwen3-4B-Instruct-2507"
   lora: { r: 16, alpha: 32 }
   repo: "https://github.com/Tzohar/PassLLM.git"
   weights_url: "https://github.com/Tzohar/PassLLM/releases/download/v1.3.0/PassLLM-Qwen3-4B-v1.0.pth"
   weights_file: "models/PassLLM-Qwen3-4B-v1.0.pth"   # ~126 MB
   license: "GPL-3.0"                                 # governs use/distribution — see ROADMAP risk register
   # No self-training (fixed decision). Inference only, via the repo's own app.py.
+  # Alt small model for the C0b/C0/C2/C3 robustness subset (optional, pilot-time permitting):
+  alt_model: "Llama-3.2-1B"
 
-# PassLLM input schema (FIXED by the model). One JSON object per target, JSONL file.
-# NOTE: no slot for Location or username -> those PII fields cannot be fed to this engine.
+# PassLLM input: the normalized PII dict is formatted into the Qwen3 CHAT TEMPLATE with all
+# nine fields (revised design). Confirm the exact key names on the first real Colab run.
 input_schema:
-  fields: [name, birth_year, email, phone, previous_passwords]
-  example: { name: "Test Persona", birth_year: "1990", email: "probe@example.com" }
+  fields: [name, username, email, birth_year, birth_month, birth_day, phone, city, country]
+  example: { name: "Test Persona", birth_year: "1990", email: "probe@example.com", city: "Springfield" }
 
 inference:
   command: "python app.py --file target.jsonl --weights models/PassLLM-Qwen3-4B-v1.0.pth --fast"
-  run_count: 1
-  keep_ratio: 1.0
+  run_count: 100              # revised: 2x PassLLM default (50) — compensates for OSINT noise
+  keep_ratio: 0.3             # revised: lower than PassLLM default (0.5) — wider exploration
+  beam_schedule: "SCHEDULE_DEEP"   # [500,200,200,500,500,1000,...]
+  normalize_probabilities: true
+  top_k: 1000                 # return top 1000 unique candidates
   throughput_target_pw_s: [80, 150]
+  seeds: [42, 137, 856]       # C2 seed sweep for inference-stability CV (revised design)
+  cv_warn_threshold: 0.30     # CV(CR100) above this -> raise run_count or keep_ratio
 
 evaluation:
-  budgets: [100, 1000, 10000]
+  budgets: [100, 1000]        # revised: CR100 and CR1K are the reported budgets
   bootstrap_iterations: 1000
+  bootstrap_method: "bca"     # bias-corrected and accelerated (revised design)
   ci: 0.95
+  confidence_tiers: { high: 0.70, medium: 0.40 }   # High >=0.70, Medium 0.40-0.69, Low <0.40
+  jaccard_stable: 0.80        # per-field collection-stability threshold (two 48h-apart runs)
 
-conditions: [C0, C1, C2, C3, C4, C5, C6]
+# 9 primary conditions (12 incl. C4 sub-conditions). See Password_guess_test.pdf s2.3.3.
+conditions: [C0, C0b, C1, C2, C3, C4a, C4b, C4c, C4d, C5, C6, C7]
 
 footprint_tiers: [rich, moderate, sparse]
 

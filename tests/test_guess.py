@@ -25,20 +25,21 @@ def _profiles() -> list[NormalizedProfile]:
 
 
 def test_build_input_order_and_condition() -> None:
-    text, order = build_input(_profiles(), Condition.C1)
+    # C2 = full OSINT PII (revised design). birthdate -> birth_year.
+    text, order = build_input(_profiles(), Condition.C2)
     assert order == ["t01", "t02"]
     lines = [json.loads(ln) for ln in text.strip().splitlines()]
     assert lines[0]["birth_year"] == "1995"        # birthdate -> birth_year
     assert lines[1] == {"name": "Budi T"}
 
-    # C0 = empty objects, one per target, order preserved.
+    # C0 (and C1 trawling) = empty objects, one per target, order preserved.
     c0_text, c0_order = build_input(_profiles(), Condition.C0)
     assert c0_order == ["t01", "t02"]
     assert [json.loads(x) for x in c0_text.strip().splitlines()] == [{}, {}]
 
 
 def test_write_input(tmp_path: Path) -> None:
-    order = write_input(_profiles(), Condition.C1, tmp_path / "in.jsonl")
+    order = write_input(_profiles(), Condition.C2, tmp_path / "in.jsonl")
     assert order == ["t01", "t02"]
     assert (tmp_path / "in.jsonl").read_text(encoding="utf-8").count("\n") == 2
 
@@ -73,3 +74,7 @@ def test_runs_store_roundtrip(tmp_path: Path) -> None:
 def test_build_command() -> None:
     cmd = build_command(Path("target.jsonl"), Path("models/w.pth"))
     assert cmd[:3] == ["python", "app.py", "--file"] and "--fast" in cmd
+    assert "--no-lora" not in cmd
+    # C0b: base model without the LoRA adapter
+    base = build_command(Path("target.jsonl"), Path("models/w.pth"), base_only=True)
+    assert "--no-lora" in base

@@ -62,16 +62,20 @@ def test_passllm_prompt_and_ablation() -> None:
         },
         footprint_tier=FootprintTier.MODERATE,
     )
-    # C0: empty (no PII baseline).
+    # No-PII conditions: C0 (empty prompt) and C1 (trawling) both send nothing.
     assert build_prompt(profile, Condition.C0) == ""
+    assert build_prompt(profile, Condition.C1) == ""
 
-    # C1: PassLLM schema; birthdate -> birth_year; city has no slot, dropped.
-    c1 = json.loads(build_prompt(profile, Condition.C1))
-    assert c1["name"] == "Test Persona"
-    assert c1["birth_year"] == "1990"
-    assert c1["email"] == "probe@example.com"
-    assert "city" not in c1 and "location" not in c1  # Location has no engine slot
+    # C2: full OSINT PII via chat template; birthdate -> birth_year; city now sent (revised).
+    c2 = json.loads(build_prompt(profile, Condition.C2))
+    assert c2["name"] == "Test Persona"
+    assert c2["birth_year"] == "1990"
+    assert c2["email"] == "probe@example.com"
+    assert c2["city"] == "Examplecity"
 
-    # C3 removes Identity -> name gone; C4 removes Temporal -> birth_year gone.
-    assert "name" not in json.loads(build_prompt(profile, Condition.C3))
-    assert "birth_year" not in json.loads(build_prompt(profile, Condition.C4))
+    # Grouped ablations (revised): C4a drops Identity (name+email); C4b drops Temporal
+    # (birth_year); C4c drops Location (city).
+    c4a = json.loads(build_prompt(profile, Condition.C4A))
+    assert "name" not in c4a and "email" not in c4a
+    assert "birth_year" not in json.loads(build_prompt(profile, Condition.C4B))
+    assert "city" not in json.loads(build_prompt(profile, Condition.C4C))

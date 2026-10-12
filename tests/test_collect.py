@@ -44,7 +44,7 @@ def test_holehe_parse() -> None:
     c = HoleheCollector(runner=_fixed_runner(HOLEHE_OUT))
     obs = c.collect("t01", {"email": "rina48@example.com"})
     assert {o.source for o in obs} == {"holehe:twitter.com", "holehe:spotify.com"}
-    assert all(o.group is FieldGroup.CONTACT for o in obs)
+    assert all(o.group is FieldGroup.IDENTITY for o in obs)   # email is Identity (revised)
 
 
 def test_missing_seed_field_yields_nothing() -> None:
@@ -75,12 +75,33 @@ def test_orchestrator_tolerates_failure_and_dedupes() -> None:
 
 
 def test_registry_general_plus_region(tmp_path: Path) -> None:
+    # Revised design: Western region custom scrapers (linkedin, github).
     cfg = tmp_path / "regions.yaml"
-    cfg.write_text("regions:\n  id:\n    scrapers: [tokopedia, bukalapak]\n", encoding="utf-8")
-    names = {c.name for c in build_collectors(region="id", config_path=cfg)}
-    assert {"sherlock", "holehe", "tokopedia", "bukalapak"} <= names
+    cfg.write_text("regions:\n  western:\n    scrapers: [linkedin, github]\n", encoding="utf-8")
+    names = {c.name for c in build_collectors(region="western", config_path=cfg)}
+    assert {"sherlock", "holehe", "linkedin", "github"} <= names
     # no region -> general tools only
     assert {c.name for c in build_collectors(region=None, config_path=cfg)} == {"sherlock", "holehe"}
+
+
+def test_tool_recovery_matrix_and_deprecation() -> None:
+    from osint_ai_pwg.collect.tool_ablation import deprecatable_tools, tool_recovery_matrix
+
+    class _Fake:
+        def __init__(self, name, obs):
+            self.name = name
+            self._obs = obs
+
+        def collect(self, target_id, seed):
+            return self._obs
+
+    good = _Fake("sherlock", [Observation("t01", "username", FieldGroup.IDENTITY, "alex48", "sherlock:gh")])
+    dud = _Fake("theharvester", [])                      # recovers nothing
+    gt = {"username": "alex48", "email": "a@x.com"}
+    matrix = tool_recovery_matrix("t01", {}, [good, dud], gt)
+    assert matrix["sherlock"] == {"username": True, "email": False}
+    assert matrix["theharvester"] == {"username": False, "email": False}
+    assert deprecatable_tools(matrix) == ["theharvester"]
 
 
 def test_seed_is_minimal() -> None:
@@ -97,6 +118,6 @@ def test_seed_is_minimal() -> None:
 
 
 def test_store_roundtrip(tmp_path: Path) -> None:
-    obs = [Observation("t01", "email", FieldGroup.CONTACT, "a@b", "holehe:x")]
+    obs = [Observation("t01", "email", FieldGroup.IDENTITY, "a@b", "holehe:x")]
     path = save_observations("t01", obs, tmp_path)
     assert load_observations(path)[0].source == "holehe:x"
