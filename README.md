@@ -37,6 +37,14 @@ Research questions: **RQ1** does OSINT completeness affect accuracy (by footprin
 **RQ2** OSINT-vs-ground-truth gap, i.e. noise penalty Γ = CR(C3) − CR(C2) · **RQ3** which PII
 groups matter most (the C4a–d ablations).
 
+### Data flow (DFD level 1)
+
+![OSINT-AI-PWG data flow diagram, level 1](diagrams/dfd-level1.png)
+
+The throwaway password travels one path only — `D1 → 6.0 Evaluate` (the dashed red edge) — where
+it is the answer key for scoring. It never reaches the input builder, the guesser, or PassLLM, so
+the engine cannot see the password it is trying to guess.
+
 ## Layout
 
 ```
