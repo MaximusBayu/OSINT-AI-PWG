@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from osint_ai_pwg.collect.base import Collector
@@ -11,6 +12,7 @@ from osint_ai_pwg.collect.seed import derive_seed
 from osint_ai_pwg.collect.store import load_observations, save_observations
 from osint_ai_pwg.collect.tools.holehe import HoleheCollector
 from osint_ai_pwg.collect.tools.sherlock import SherlockCollector
+from osint_ai_pwg.collect.tools.theharvester import TheHarvesterCollector
 from osint_ai_pwg.personas.schema import GroundTruth, PasswordKind
 from osint_ai_pwg.schemas import FieldGroup, FootprintTier, Observation
 
@@ -82,6 +84,43 @@ def test_registry_general_plus_region(tmp_path: Path) -> None:
     assert {"sherlock", "holehe", "linkedin", "github"} <= names
     # no region -> general tools only
     assert {c.name for c in build_collectors(region=None, config_path=cfg)} == {"sherlock", "holehe"}
+
+
+def test_registry_includes_hosted_services_when_urls_given() -> None:
+    names = {c.name for c in build_collectors(
+        spiderfoot_url="https://sf.example", theharvester_url="https://harvest.example")}
+    assert {"sherlock", "holehe", "spiderfoot", "theharvester"} <= names
+    # no URLs -> hosted services stay out
+    assert {c.name for c in build_collectors()} == {"sherlock", "holehe"}
+
+
+class FakeHarvestHttp:
+    def __init__(self, emails: list[str]) -> None:
+        self._emails = emails
+        self.urls: list[str] = []
+
+    def get(self, url: str) -> str:
+        self.urls.append(url)
+        return json.dumps({"emails": self._emails, "hosts": ["a.example.com"]})
+
+
+def test_theharvester_extracts_domain_and_maps_emails() -> None:
+    http = FakeHarvestHttp(["a@example.com", "b@example.com"])
+    c = TheHarvesterCollector("https://harvest.example", http=http)
+    obs = c.collect("t01", {"email": "rina@example.com"})
+    assert {o.value for o in obs} == {"a@example.com", "b@example.com"}
+    assert all(o.field == "email" and o.group is FieldGroup.IDENTITY for o in obs)
+    assert all(o.source == "theharvester:restful" for o in obs)
+    # queried the seed's domain, with the default source list
+    assert "domain=example.com" in http.urls[0]
+    assert "source=crtsh" in http.urls[0]
+
+
+def test_theharvester_no_email_no_query() -> None:
+    http = FakeHarvestHttp([])
+    c = TheHarvesterCollector("https://harvest.example", http=http)
+    assert c.collect("t01", {"username": "rina48"}) == []   # no email -> no domain
+    assert http.urls == []
 
 
 def test_tool_recovery_matrix_and_deprecation() -> None:

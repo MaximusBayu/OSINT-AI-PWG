@@ -8,7 +8,8 @@
 #   region=western           — selects custom scrapers via config/regions.yaml
 osint:
   mode: demo
-  spiderfoot_url: ""
+  spiderfoot_url: "https://spiderfoot.maxflow.space"
+  theharvester_url: "https://harvester.maxflow.space"
   region: western
 
 model:

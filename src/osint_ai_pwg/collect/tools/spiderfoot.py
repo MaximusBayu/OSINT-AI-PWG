@@ -18,6 +18,7 @@ import time
 import urllib.parse
 import urllib.request
 
+from osint_ai_pwg.collect.base import Collector
 from osint_ai_pwg.schemas import Directness, FieldGroup, Observation
 
 name = "spiderfoot"
@@ -50,7 +51,7 @@ class HttpClient:
             return r.read().decode("utf-8", "replace")
 
 
-class SpiderFootCollector:
+class SpiderFootCollector(Collector):
     name = "spiderfoot"
 
     def __init__(self, base_url: str, http: HttpClient | None = None,
