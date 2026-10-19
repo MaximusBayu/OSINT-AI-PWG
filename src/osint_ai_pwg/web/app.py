@@ -27,6 +27,7 @@ _GT_DIR = Path(os.environ.get("GROUND_TRUTH_DIR", "data/ground_truth"))
 _STATIC = Path(__file__).parent / "static"
 _MODE = os.environ.get("OSINT_MODE", "demo").lower()          # demo | real
 _SPIDERFOOT_URL = os.environ.get("SPIDERFOOT_URL", "").rstrip("/")
+_THEHARVESTER_URL = os.environ.get("THEHARVESTER_URL", "").rstrip("/")
 
 app = FastAPI(title="OSINT-AI-PWG demo (research, synthetic targets only)")
 _jobs = JobStore()
@@ -85,7 +86,8 @@ def collect(payload: dict) -> dict:
         raise HTTPException(status_code=400, detail="real mode not enabled (set OSINT_MODE=real + SPIDERFOOT_URL)")
 
     def body(progress):
-        return run_real(target_id, roster, _SPIDERFOOT_URL, progress=progress)
+        return run_real(target_id, roster, _SPIDERFOOT_URL, progress=progress,
+                        theharvester_url=_THEHARVESTER_URL)
 
     return {"job_id": _jobs.start(body)}
 

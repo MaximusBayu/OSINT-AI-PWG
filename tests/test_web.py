@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import pytest
 
+from osint_ai_pwg.collect.base import Collector
 from osint_ai_pwg.personas.generate import build_targets
 from osint_ai_pwg.personas.schema import PasswordKind
+from osint_ai_pwg.schemas import FieldGroup, Observation
 from osint_ai_pwg.web.demo import DemoEngine
 from osint_ai_pwg.web.service import (
     ConsentRequired,
@@ -13,6 +15,7 @@ from osint_ai_pwg.web.service import (
     create_self_target,
     list_targets,
     run_demo,
+    run_real,
 )
 
 
@@ -93,3 +96,17 @@ def test_demo_engine_needs_name_and_year() -> None:
     assert eng.guesses({"name": "Rina P", "birth_year": "1995"})          # produces patterns
     # without a year it cannot rebuild a name+year password
     assert "Rina1995" not in eng.guesses({"name": "Rina P"})
+
+
+def test_run_real_uses_injected_collectors() -> None:
+    class _Fake(Collector):
+        name = "fake"
+
+        def collect(self, target_id, seed):
+            return [Observation(target_id, "email", FieldGroup.IDENTITY, "x@y.com", "fake:src")]
+
+    roster = _roster()
+    tid = next(iter(roster))
+    out = run_real(tid, roster, "https://sf.example", collectors=[_Fake()])
+    assert out["mode"] == "real"
+    assert any(o["source"] == "fake:src" for o in out["observations"])

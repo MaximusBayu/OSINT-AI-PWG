@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from osint_ai_pwg.collect.orchestrator import collect_target
+from osint_ai_pwg.collect.registry import build_collectors
 from osint_ai_pwg.collect.seed import derive_seed
 from osint_ai_pwg.evaluate.metrics import guess_number
 from osint_ai_pwg.guess.prompt import build_passllm_object
@@ -15,7 +17,6 @@ from osint_ai_pwg.normalize.normalize import normalize
 from osint_ai_pwg.normalize.summary import confidence_tier, profile_summary
 from osint_ai_pwg.personas.schema import GroundTruth, validate
 from osint_ai_pwg.personas.self_target import build_self_target
-from osint_ai_pwg.collect.tools.spiderfoot import SpiderFootCollector
 from osint_ai_pwg.web.demo import DemoCollector, DemoEngine
 from osint_ai_pwg.schemas import Condition, NormalizedProfile, Observation, ProfileField
 
@@ -168,12 +169,16 @@ def run_real(
     spiderfoot_url: str,
     engine: DemoEngine | None = None,
     progress=None,
-    collector=None,
+    theharvester_url: str | None = None,
+    collectors: list | None = None,
 ) -> dict:
-    """Real mode: live SpiderFoot OSINT collection, then normalize -> guess -> evaluate.
+    """Real mode: live OSINT from all wired tools, then normalize -> guess -> evaluate.
 
-    Roster-locked (consenting self-targets only). Guessing still uses the demo engine —
-    real PassLLM is a separate stage. `progress(pct, msg)` is called for the job UI.
+    Roster-locked (consenting self-targets only). Collection runs sherlock, holehe,
+    maigret, theharvester, and SpiderFoot in parallel (deduped), so it takes minutes and
+    must run inside a background job. Guessing still uses the demo engine — real PassLLM
+    is a separate GPU stage. `progress(pct, msg)` is called for the job UI. `collectors`
+    is injectable for tests.
     """
     gt = roster.get(target_id)
     if gt is None:
@@ -184,9 +189,13 @@ def run_real(
     engine = engine or DemoEngine()
 
     seed = derive_seed(gt)
-    progress(10, "starting SpiderFoot scan")
-    collector = collector or SpiderFootCollector(spiderfoot_url)
-    observations = collector.collect(target_id, seed)
+    progress(10, "running OSINT collectors (sherlock, holehe, maigret, theharvester, spiderfoot)")
+    if collectors is None:
+        collectors = build_collectors(
+            spiderfoot_url=spiderfoot_url,
+            theharvester_url=theharvester_url or None,
+        )
+    observations = collect_target(target_id, seed, collectors, timeout_s=600)
     progress(80, "normalizing + scoring + guessing")
     return _assemble_result(gt, seed, observations, engine, mode="real")
 

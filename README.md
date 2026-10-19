@@ -105,7 +105,7 @@ normalization, guessing glue, evaluation, pipeline driver, reporting. The whole 
 end-to-end in tests with an injectable fake engine.
 
 Remaining work needs real environments (not offline code):
-- **VPS:** implement the region scrapers (linkedin, github); collect against planted footprints. (theHarvester + SpiderFoot wrappers are wired into `build_collectors` now.)
+- **VPS:** implement the region scrapers (linkedin, github); collect against planted footprints. (theHarvester, SpiderFoot, and Maigret wrappers are wired into `build_collectors` now. Maigret is an extra beyond the thesis's 5-tool list, added for richer profile extraction.)
 - **Colab:** apply the small `app.py` patch (add `--base` for C0b, drop the empty-profile guard for C0/C1 — see `guess/runner.py`); run the matrix.
 - **Manual:** plant persona footprints (`docs/phase1-persona-protocol.md`); run hashcat for C6.
 
