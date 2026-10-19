@@ -1,0 +1,8 @@
+FROM python:3.13-slim
+WORKDIR /app
+COPY pyproject.toml README.md /app/
+COPY src/ /app/src/
+RUN pip install --no-cache-dir '.[web]'
+RUN python -m osint_ai_pwg.personas.generate -n 15 --out /app/data/ground_truth
+EXPOSE 8000
+CMD ["uvicorn", "osint_ai_pwg.web.app:app", "--host", "0.0.0.0", "--port", "8000"]
