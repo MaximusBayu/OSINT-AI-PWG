@@ -30,3 +30,13 @@ def write_input(profiles: list[NormalizedProfile], condition: Condition, path: P
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(text, encoding="utf-8")
     return order
+
+
+def write_single(obj: dict, path: Path) -> None:
+    """Write ONE PassLLM input object (single JSON, not JSONL lines).
+
+    PassLLM's app.py reads the file with json.load() — a single object per invocation —
+    so the engine writes one file per target rather than a batch JSONL.
+    """
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(obj), encoding="utf-8")

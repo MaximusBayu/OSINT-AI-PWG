@@ -29,7 +29,8 @@ input_schema:
   example: { name: "Test Persona", birth_year: "1990", email: "probe@example.com", city: "Springfield" }
 
 inference:
-  command: "python app.py --file target.jsonl --weights models/PassLLM-Qwen3-4B-v1.0.pth --fast"
+  mode: deep                  # runner mode: deep | fast | superfast | standard (app.py flag)
+  command: "python app.py --file target.jsonl --weights models/PassLLM-Qwen3-4B-v1.0.pth --deep"
   run_count: 100              # revised: 2x PassLLM default (50) — compensates for OSINT noise
   keep_ratio: 0.3             # revised: lower than PassLLM default (0.5) — wider exploration
   beam_schedule: "SCHEDULE_DEEP"   # [500,200,200,500,500,1000,...]

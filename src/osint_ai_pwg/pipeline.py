@@ -16,7 +16,7 @@ from pathlib import Path
 from osint_ai_pwg.evaluate.harness import condition_crack_rate
 from osint_ai_pwg.evaluate.metrics import coefficient_of_variation
 from osint_ai_pwg.guess.assemble import build_runs
-from osint_ai_pwg.guess import jsonl, runner as passllm_runner
+from osint_ai_pwg.guess import jsonl, prompt, runner as passllm_runner
 from osint_ai_pwg.schemas import Condition, GuessRun, NormalizedProfile
 
 # (profiles, condition) -> {target_id: [ranked guesses]}
@@ -39,23 +39,28 @@ def run_matrix(
 
 
 def make_passllm_engine(
-    weights_file: Path, runner=None, fast: bool = True, base_only: bool = False
+    weights_file: Path, runner=None, mode: str = "fast", base_only: bool = False
 ) -> Engine:
-    """Real engine: write the JSONL, invoke PassLLM, parse its output.
+    """Real engine: one PassLLM invocation per target (app.py is single-target).
 
-    base_only=True runs the raw base model without the LoRA adapter (condition C0b).
-    Depends on `runner.parse_output`, which must be implemented against the real PassLLM
-    stdout format (first Colab run). Untested here for that reason.
+    Writes one JSON object per profile, invokes app.py, and parses the ranked results
+    file. base_only=True runs the raw base model (condition C0b) via `--base`, which
+    needs the app.py patch documented in guess/runner.py.
     """
 
     def engine(profiles: list[NormalizedProfile], condition: Condition) -> dict[str, list[str]]:
-        with tempfile.TemporaryDirectory() as td:
-            in_path = Path(td) / "target.jsonl"
-            order = jsonl.write_input(profiles, condition, in_path)
-            raw = passllm_runner.run(
-                in_path, weights_file, runner=runner, fast=fast, base_only=base_only
-            )
-            return passllm_runner.parse_output(raw, order)
+        guesses_by_id: dict[str, list[str]] = {}
+        for prof in profiles:
+            obj = prompt.build_passllm_object(prof, condition)
+            with tempfile.TemporaryDirectory() as td:
+                in_path = Path(td) / "target.jsonl"
+                jsonl.write_single(obj, in_path)
+                raw = passllm_runner.run(
+                    in_path, weights_file, runner=runner, mode=mode, base_only=base_only
+                )
+                parsed = passllm_runner.parse_output(raw, [prof.target_id])
+            guesses_by_id[prof.target_id] = parsed.get(prof.target_id, [])
+        return guesses_by_id
 
     return engine
 

@@ -105,15 +105,18 @@ normalization, guessing glue, evaluation, pipeline driver, reporting. The whole 
 end-to-end in tests with an injectable fake engine.
 
 Remaining work needs real environments (not offline code):
-- **VPS:** finish theHarvester/SpiderFoot parsers + Tokopedia/Bukalapak scraping; collect against planted footprints.
-- **Colab:** implement `guess/runner.py::parse_output` against real PassLLM stdout; run the matrix.
+- **VPS:** write the `theHarvester` wrapper + wire SpiderFoot into `build_collectors`; implement the region scrapers (linkedin, github); collect against planted footprints.
+- **Colab:** apply the small `app.py` patch (add `--base` for C0b, drop the empty-profile guard for C0/C1 — see `guess/runner.py`); run the matrix.
 - **Manual:** plant persona footprints (`docs/phase1-persona-protocol.md`); run hashcat for C6.
 
 ## Known limitation
 
-PassLLM's input schema has no slot for **Location** or **username**, so those fields never
-reach the engine: RQ3 cannot measure Location's contribution, and C5 reduces to removing
-Contact. Recorded as a thesis limitation.
+`parse_output` now reads PassLLM's real output (the results JSON) and the engine loops
+per-target, matching PassLLM's single-target `app.py`. Two engine-side gaps remain and
+need a tiny patch to the PassLLM clone on Colab: (1) no `--base` flag for C0b, and
+(2) `app.py` rejects an empty profile, which C0/C1 need. Both are documented in
+`guess/runner.py`. The 9-field schema maps cleanly onto PassLLM's `schema_defaults`
+(including `city`, `country`, `username`), so RQ3's Location ablation (C4c) is measurable.
 
 ## Guides (local, untracked)
 

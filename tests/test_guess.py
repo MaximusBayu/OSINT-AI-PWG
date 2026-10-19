@@ -9,7 +9,7 @@ from osint_ai_pwg.guess.assemble import build_runs
 from osint_ai_pwg.guess.config_hash import config_hash
 from osint_ai_pwg.guess.jsonl import build_input, write_input
 from osint_ai_pwg.guess.manifest import RunManifest
-from osint_ai_pwg.guess.runner import build_command
+from osint_ai_pwg.guess.runner import build_command, extract_results_path, parse_output
 from osint_ai_pwg.guess.store import load_runs, save_runs
 from osint_ai_pwg.schemas import Condition, NormalizedProfile, ProfileField
 
@@ -74,7 +74,30 @@ def test_runs_store_roundtrip(tmp_path: Path) -> None:
 def test_build_command() -> None:
     cmd = build_command(Path("target.jsonl"), Path("models/w.pth"))
     assert cmd[:3] == ["python", "app.py", "--file"] and "--fast" in cmd
-    assert "--no-lora" not in cmd
-    # C0b: base model without the LoRA adapter
+    assert "--deep" not in cmd and "--base" not in cmd
+    deep = build_command(Path("target.jsonl"), Path("models/w.pth"), mode="deep")
+    assert "--deep" in deep and "--fast" not in deep
+    # C0b: raw base model (no LoRA) -> --base (needs the app.py patch, not a stock flag)
     base = build_command(Path("target.jsonl"), Path("models/w.pth"), base_only=True)
-    assert "--no-lora" in base
+    assert "--base" in base
+
+
+def test_parse_output_reads_ranked_results_file(tmp_path: Path) -> None:
+    results = tmp_path / "guesses_Rina_P.json"
+    results.write_text(json.dumps([
+        {"password": "pw1", "confidence": "90.00%", "log_score": -0.1},
+        {"password": "pw2", "confidence": "80.00%", "log_score": -0.2},
+    ]), encoding="utf-8")
+    raw = f"[+] Guessing...\n[+] Saving 2 candidates to: {results}\n"
+    assert parse_output(raw, ["t01"]) == {"t01": ["pw1", "pw2"]}
+
+
+def test_parse_output_missing_file_is_empty() -> None:
+    raw = "[+] Saving 2 candidates to: /nonexistent/guesses.json"
+    assert parse_output(raw, ["t01"]) == {"t01": []}
+
+
+def test_extract_results_path() -> None:
+    assert extract_results_path("[+] Saving 42 candidates to: /results/guesses_Rina.json") == \
+        "/results/guesses_Rina.json"
+    assert extract_results_path("no saving line here") is None
