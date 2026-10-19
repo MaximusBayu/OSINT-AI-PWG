@@ -38,15 +38,20 @@ _TERMINAL = {"FINISHED", "ABORTED", "ERROR-FAILED", "FAILED"}
 
 
 class HttpClient:
-    """Minimal stdlib HTTP client (no requests dependency)."""
+    """Minimal stdlib HTTP client (no requests dependency).
+
+    Sends `Accept: application/json` — without it SpiderFoot returns its HTML UI instead
+    of the JSON API responses the collector parses.
+    """
 
     def get(self, url: str) -> str:
-        with urllib.request.urlopen(url, timeout=30) as r:  # noqa: S310 (user-configured host)
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310 (user-configured host)
             return r.read().decode("utf-8", "replace")
 
     def post(self, url: str, data: dict) -> str:
         body = urllib.parse.urlencode(data).encode()
-        req = urllib.request.Request(url, data=body)
+        req = urllib.request.Request(url, data=body, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310
             return r.read().decode("utf-8", "replace")
 
@@ -75,8 +80,8 @@ class SpiderFootCollector(Collector):
     def _status(self, scan_id: str) -> str:
         resp = self._http.get(self.base + f"/scanstatus?id={urllib.parse.quote(scan_id)}")
         data = json.loads(resp)
-        # SpiderFoot returns [name, status, created, started, ended]
-        return str(data[1]).upper() if isinstance(data, list) and len(data) > 1 else "UNKNOWN"
+        # SpiderFoot v4 returns [name, target, created, started, ended, STATUS, counts]
+        return str(data[5]).upper() if isinstance(data, list) and len(data) > 5 else "UNKNOWN"
 
     def _results(self, scan_id: str) -> list[dict]:
         resp = self._http.get(self.base + f"/scanexportjsonmulti?ids={urllib.parse.quote(scan_id)}")
@@ -99,9 +104,10 @@ class SpiderFootCollector(Collector):
     def _map(self, target_id: str, rows: list[dict]) -> list[Observation]:
         obs: list[Observation] = []
         for row in rows:
-            etype = row.get("Type") or row.get("type")
-            value = row.get("Data") or row.get("data")
-            module = row.get("Module") or row.get("module") or "spiderfoot"
+            # SpiderFoot v4 export uses lowercase keys; event type is 'event_type'.
+            etype = row.get("event_type") or row.get("Type") or row.get("type")
+            value = row.get("data") or row.get("Data")
+            module = row.get("module") or row.get("Module") or "spiderfoot"
             mapped = SF_MAP.get(etype or "")
             if not mapped or not value:
                 continue

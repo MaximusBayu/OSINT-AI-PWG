@@ -22,17 +22,18 @@ class FakeHttp:
     def get(self, url: str) -> str:
         self.calls.append("GET " + url)
         if "/scanstatus" in url:
-            return json.dumps(["pwg-x", "FINISHED", 0, 0, 0])
+            # SpiderFoot v4: [name, target, created, started, ended, STATUS, counts]
+            return json.dumps(["pwg-x", "example.com", "0", "0", "0", "FINISHED", {"HIGH": 0}])
         if "/scanexportjsonmulti" in url:
             return json.dumps(self._rows)
         return "[]"
 
 
 ROWS = [
-    {"Type": "EMAILADDR", "Data": "rina@example.com", "Module": "sfp_hunter"},
-    {"Type": "HUMAN_NAME", "Data": "Rina Example", "Module": "sfp_fullcontact"},
-    {"Type": "PHONE_NUMBER", "Data": "+620000", "Module": "sfp_abstractapi"},
-    {"Type": "MALICIOUS_EMAILADDR", "Data": "ignore", "Module": "sfp_x"},   # unmapped -> skipped
+    {"event_type": "EMAILADDR", "data": "rina@example.com", "module": "sfp_hunter"},
+    {"event_type": "HUMAN_NAME", "data": "Rina Example", "module": "sfp_fullcontact"},
+    {"event_type": "PHONE_NUMBER", "data": "+620000", "module": "sfp_abstractapi"},
+    {"event_type": "MALICIOUS_EMAILADDR", "data": "ignore", "module": "sfp_x"},   # unmapped -> skipped
 ]
 
 
