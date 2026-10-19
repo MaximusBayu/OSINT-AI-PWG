@@ -10,7 +10,8 @@ evaluation protocol.
 
 ## What it does
 
-Four-layer pipeline, one shared guessing engine, seven experimental conditions:
+Four-layer pipeline, one shared guessing engine, twelve experimental conditions
+(revised 2026-10 design):
 
 ```
 collect → normalize → prompt → PassLLM → assemble → evaluate → report
@@ -19,14 +20,22 @@ collect → normalize → prompt → PassLLM → assemble → evaluate → repor
 
 | Condition | Meaning |
 |-----------|---------|
-| C0 | no-PII baseline (trawling) |
-| C1 | OSINT PII (full) |
-| C2 | ground-truth PII (full) |
-| C3–C5 | C1 minus a field group (ablation) |
-| C6 | Hashcat rule-based reference (no LLM) |
+| C0  | no-PII baseline (empty input) |
+| C0b | full OSINT PII on base Qwen3-4B **without** the LoRA adapter (isolates the fine-tune) |
+| C1  | no-PII trawling lower bound (common-password style) |
+| C2  | **full OSINT PII** — the OSINT condition (drives RQ1 + RQ2) |
+| C3  | full ground-truth PII — the upper-bound ceiling |
+| C4a–C4d | C2 minus one field group each: Identity / Temporal / Location / Contact (ablation) |
+| C5  | confidence-tier-stratified OSINT (validation) |
+| C6  | Hashcat rule-based reference on C2 (no LLM) |
+| C7  | random passwords matching ground-truth length/charset (sanity floor) |
 
-Research questions: **RQ1** does OSINT completeness affect accuracy · **RQ2** OSINT-vs-ground-truth
-gap (noise penalty) · **RQ3** which PII groups matter most.
+Field groups: **Identity** = name, username, email · **Temporal** = birth year/month/day ·
+**Location** = city, country · **Contact** = phone.
+
+Research questions: **RQ1** does OSINT completeness affect accuracy (by footprint tier) ·
+**RQ2** OSINT-vs-ground-truth gap, i.e. noise penalty Γ = CR(C3) − CR(C2) · **RQ3** which PII
+groups matter most (the C4a–d ablations).
 
 ## Layout
 
@@ -104,16 +113,21 @@ Every offline-testable layer is built and green (`pytest`): collection orchestra
 normalization, guessing glue, evaluation, pipeline driver, reporting. The whole flow runs
 end-to-end in tests with an injectable fake engine.
 
-Remaining work needs real environments (not offline code):
-- **VPS:** finish theHarvester/SpiderFoot parsers + Tokopedia/Bukalapak scraping; collect against planted footprints.
-- **Colab:** implement `guess/runner.py::parse_output` against real PassLLM stdout; run the matrix.
+General OSINT tools are wrapped (Sherlock, Holehe, theHarvester) and SpiderFoot is wired into
+`build_collectors` (pass `spiderfoot_url=`). Remaining work needs real environments (not offline code):
+- **VPS:** implement the Western custom scrapers (`collect/scrapers/` linkedin/github — currently
+  stubs returning `[]`); verify the theHarvester/SpiderFoot parsers against the hosted instances;
+  collect against planted footprints.
+- **Colab:** implement `guess/runner.py::parse_output` against real PassLLM stdout; confirm the
+  `--no-lora` flag for C0b; run the matrix.
 - **Manual:** plant persona footprints (`docs/phase1-persona-protocol.md`); run hashcat for C6.
 
 ## Known limitation
 
-PassLLM's input schema has no slot for **Location** or **username**, so those fields never
-reach the engine: RQ3 cannot measure Location's contribution, and C5 reduces to removing
-Contact. Recorded as a thesis limitation.
+Earlier the PassLLM input schema had no slot for **Location** or **username**. The revised design
+feeds all 9 fields (name, username, email, birth y/m/d, phone, city, country) via the Qwen3 chat
+template, so that blind spot should be gone — **to confirm on the first real Colab run** before
+relying on the C4c (Location) ablation.
 
 ## Guides (local, untracked)
 

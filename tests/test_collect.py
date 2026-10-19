@@ -47,6 +47,30 @@ def test_holehe_parse() -> None:
     assert all(o.group is FieldGroup.IDENTITY for o in obs)   # email is Identity (revised)
 
 
+THEHARVESTER_OUT = """
+[*] Emails found:
+----------------------
+rina48@example.com
+careers@example.com
+
+[*] Hosts found:
+----------------------
+mail.example.com:10.0.0.1
+"""
+
+
+def test_theharvester_parse() -> None:
+    from osint_ai_pwg.collect.tools.theharvester import TheHarvesterCollector
+
+    c = TheHarvesterCollector(runner=_fixed_runner(THEHARVESTER_OUT))
+    obs = c.collect("t01", {"email": "rina48@example.com"})
+    values = {o.value for o in obs}
+    assert values == {"rina48@example.com", "careers@example.com"}   # emails only, host dropped
+    assert all(o.group is FieldGroup.IDENTITY and o.source == "theharvester:example.com" for o in obs)
+    # no email in seed -> no command, nothing recovered
+    assert TheHarvesterCollector(runner=_fixed_runner(THEHARVESTER_OUT)).collect("t01", {}) == []
+
+
 def test_missing_seed_field_yields_nothing() -> None:
     # Sherlock needs a username; without one, no command, no observations.
     assert SherlockCollector(runner=_fixed_runner(SHERLOCK_OUT)).collect("t01", {}) == []
@@ -79,9 +103,14 @@ def test_registry_general_plus_region(tmp_path: Path) -> None:
     cfg = tmp_path / "regions.yaml"
     cfg.write_text("regions:\n  western:\n    scrapers: [linkedin, github]\n", encoding="utf-8")
     names = {c.name for c in build_collectors(region="western", config_path=cfg)}
-    assert {"sherlock", "holehe", "linkedin", "github"} <= names
-    # no region -> general tools only
-    assert {c.name for c in build_collectors(region=None, config_path=cfg)} == {"sherlock", "holehe"}
+    assert {"sherlock", "holehe", "theharvester", "linkedin", "github"} <= names
+    # no region -> general tools only (Sherlock, Holehe, theHarvester always run)
+    assert {c.name for c in build_collectors(region=None, config_path=cfg)} == {
+        "sherlock", "holehe", "theharvester"}
+    # SpiderFoot is general too, but only wired in when a hosted instance URL is given.
+    with_sf = {c.name for c in build_collectors(region=None, config_path=cfg,
+                                                spiderfoot_url="http://sf.local")}
+    assert "spiderfoot" in with_sf
 
 
 def test_tool_recovery_matrix_and_deprecation() -> None:

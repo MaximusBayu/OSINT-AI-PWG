@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>OSINT-AI-PWG demo</title>
+<title>Password guessing demo</title>
 <style>
   :root {
     color-scheme: dark;
@@ -31,7 +31,20 @@
            padding:16px; margin-bottom:16px; }
   .panel h2 { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--mut);
               margin-bottom:12px; font-weight:600; }
+
+  /* plain-language intro */
+  .intro { background:linear-gradient(180deg,#132033,#121722); border:1px solid #243049; }
+  .intro h2 { color:var(--accent); font-size:13px; text-transform:none; letter-spacing:0; margin-bottom:8px; }
+  .intro p { color:var(--ink); margin-bottom:10px; }
+  .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-top:4px; }
+  .step { background:#0f1522; border:1px solid var(--line); border-radius:10px; padding:11px 13px; }
+  .step .n { display:inline-flex; width:22px; height:22px; border-radius:50%; background:var(--accent);
+             color:#0b1220; font-weight:700; font-size:12px; align-items:center; justify-content:center; margin-bottom:6px; }
+  .step b { display:block; font-size:13px; margin-bottom:2px; }
+  .step span { color:var(--mut); font-size:12px; }
+
   .controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .hint { font-size:12px; color:var(--mut); margin-top:8px; }
   select, button, input { font:inherit; }
   select, input { background:var(--surface2); color:var(--ink); border:1px solid var(--line);
                   border-radius:8px; padding:9px 12px; }
@@ -48,16 +61,21 @@
   .banner.warn { background:#3a2410; color:#ffce8a; border:1px solid #5a4420; }
   .check { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; }
 
-  .verdict { border-radius:var(--radius); padding:14px 16px; margin-bottom:16px; font-size:14px;
+  .verdict { border-radius:var(--radius); padding:16px; margin-bottom:16px; font-size:15px; line-height:1.55;
              border:1px solid var(--line); background:var(--surface2); }
-  .verdict b { color:var(--ink); }
+  .verdict .big { font-size:16px; font-weight:700; display:block; margin-bottom:4px; }
+  .verdict.cracked { border-color:#5a2020; background:#2a1414; }
+  .verdict.cracked .big { color:#ff8f8f; }
+  .verdict.safe { border-color:#1f4a28; background:#132a19; }
+  .verdict.safe .big { color:var(--ok); }
+  .verdict .why { color:var(--mut); font-size:13px; }
 
   .cards { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media (max-width:640px){ .cards { grid-template-columns:1fr; } }
   .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; }
   .card.full { grid-column:1 / -1; }
-  .card h3 { font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--mut);
-             margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .card h3 { font-size:13px; color:var(--ink); margin-bottom:4px; font-weight:600; }
+  .card .cap { font-size:12px; color:var(--mut); margin-bottom:10px; }
 
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
@@ -65,36 +83,80 @@
   tr:last-child td { border-bottom:none; }
   code { background:#0b0e14; border:1px solid var(--line); padding:1px 6px; border-radius:6px; font-size:12px; }
   .pill { font-size:11px; padding:2px 9px; border-radius:999px; background:#0b0e14; border:1px solid var(--line); color:var(--mut); }
-  .ok { color:var(--ok); font-weight:700; } .no { color:var(--no); font-weight:600; }
-  .legend { font-size:12px; color:var(--mut); margin-top:10px; line-height:1.7; }
+  .tag { font-size:10px; letter-spacing:.04em; text-transform:uppercase; padding:2px 7px; border-radius:6px;
+         background:#0b0e14; border:1px solid var(--line); color:var(--mut); }
+  .tag.test { color:var(--accent); border-color:#243049; }
+  .tag.ceiling { color:#c9a3ff; border-color:#3a2a55; }
+  .cond-name { font-weight:600; color:var(--ink); }
+  .cond-help { font-size:12px; color:var(--mut); margin-top:2px; }
+  .yes { color:var(--ok); font-weight:700; } .nope { color:var(--mut); }
+  .conf-bar { height:6px; border-radius:4px; background:#0b0e14; overflow:hidden; margin-top:4px; }
+  .conf-bar i { display:block; height:100%; }
+  .legend { font-size:12px; color:var(--mut); margin-top:12px; line-height:1.7; }
   .legend code { color:var(--ink); }
+  .guesses { margin-top:6px; }
+  .guesses summary { cursor:pointer; font-size:12px; color:var(--accent); list-style:none; }
+  .guesses summary::-webkit-details-marker { display:none; }
+  .guesses summary::before { content:'▸ '; }
+  .guesses[open] summary::before { content:'▾ '; }
+  .glist { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .glist code { font-size:12px; }
+  .glist code.hit { background:#132a19; border-color:#1f4a28; color:#7ee2a0; font-weight:700; }
+  .glist .rank { color:var(--mut); font-size:10px; margin-right:3px; }
+
+  details.glossary { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+                     padding:0 16px; margin-bottom:16px; }
+  details.glossary summary { cursor:pointer; padding:14px 0; font-weight:600; color:var(--accent); list-style:none; }
+  details.glossary summary::-webkit-details-marker { display:none; }
+  details.glossary summary::before { content:'▸ '; color:var(--mut); }
+  details.glossary[open] summary::before { content:'▾ '; }
+  .gloss { padding:0 0 14px; }
+  .gloss dt { font-weight:600; color:var(--ink); margin-top:10px; }
+  .gloss dd { color:var(--mut); font-size:13px; }
 </style>
 </head>
 <body>
 <header>
   <div class="wrap">
-    <h1>OSINT-AI-PWG</h1>
-    <span class="sub">collect → normalize → guess → evaluate · one target</span>
-    <span class="demo">DEMO · synthetic only</span>
+    <h1>Password guessing demo</h1>
+    <span class="sub">how much can an AI guess your password from what's public about you?</span>
+    <span class="demo">DEMO · made-up people only</span>
   </div>
 </header>
 
 <main class="wrap">
-  <div class="panel">
-    <h2>1 · Choose a target</h2>
-    <div class="controls">
-      <select id="target"></select>
-      <button class="primary" id="run">Run (demo)</button>
-      <button class="ghost" id="runReal" hidden>Run — REAL OSINT</button>
-      <button class="ghost" id="toggleAdd">＋ Add self-target</button>
-      <span id="status" class="mut"></span>
+  <div class="panel intro">
+    <h2>What is this?</h2>
+    <p>A research tool. It checks whether an AI can guess a person's password just from
+       details that are public about them online (their name, birthday, email, city…).</p>
+    <div class="steps">
+      <div class="step"><span class="n">1</span><b>Pick a person</b>
+        <span>All test people are <b>made up</b> — no real individuals are ever used.</span></div>
+      <div class="step"><span class="n">2</span><b>Find their public info</b>
+        <span>The tool simulates what an online search would turn up about them.</span></div>
+      <div class="step"><span class="n">3</span><b>Let the AI guess</b>
+        <span>That info is handed to a password-guessing AI. Did it guess right?</span></div>
     </div>
   </div>
 
+  <div class="panel">
+    <h2>Step 1 · Choose a person to test</h2>
+    <div class="controls">
+      <select id="target"></select>
+      <button class="primary" id="run">Run the test</button>
+      <button class="ghost" id="runReal" hidden>Run with a live online search</button>
+      <button class="ghost" id="toggleAdd">＋ Add yourself</button>
+      <span id="status" class="mut"></span>
+    </div>
+    <p class="hint">Each option is a synthetic (fake) person. The label after it says how much
+      is "public" about them: <b>rich</b> = lots, <b>moderate</b> = some, <b>sparse</b> = very little.</p>
+  </div>
+
   <div id="addCard" class="panel" hidden>
-    <h2>Add a consenting self-target</h2>
-    <div class="banner warn">For <b>you</b> or a consenting person only. Use a <b>throwaway</b>
-      password (stored in a local file), never a real one. OSINT recovery is simulated in demo mode.</div>
+    <h2>Add yourself (or a consenting person)</h2>
+    <div class="banner warn">For <b>you</b> or someone who agreed only. Use a <b>throwaway</b>
+      password you made up for this — <b>never a real one</b>. It's saved to a local file on this
+      machine. In demo mode the online search is simulated, not real.</div>
     <div class="grid">
       <label>ID<input id="f_id" value="self01"></label>
       <label>Name<input id="f_name" placeholder="Real Name"></label>
@@ -107,78 +169,142 @@
       <label>Platforms<input id="f_platforms" value="twitter, instagram, linkedin, github"></label>
     </div>
     <label class="check"><input id="f_consent" type="checkbox">
-      <span>I confirm this is me or a consenting person.</span></label>
+      <span>I confirm this is me, or a person who agreed to this.</span></label>
     <div class="controls" style="margin-top:12px">
-      <button class="primary" id="create">Create target</button>
+      <button class="primary" id="create">Create</button>
       <span id="addStatus" class="mut"></span>
     </div>
   </div>
 
   <div id="out"></div>
+
+  <details class="glossary" id="glossary" hidden>
+    <summary>Glossary — the technical terms behind the plain words</summary>
+    <dl class="gloss">
+      <dt>OSINT</dt><dd>Open-Source Intelligence — public info anyone can find online. Shown here as "public info we found".</dd>
+      <dt>PII</dt><dd>Personally Identifiable Information — the personal details (name, email, birthday…) fed to the guesser.</dd>
+      <dt>Footprint (rich / moderate / sparse)</dt><dd>How much is publicly available about a person.</dd>
+      <dt>Confidence</dt><dd>How sure the tool is that a recovered detail is correct, after combining sources.</dd>
+      <dt>Crack / guess number</dt><dd>"Cracked" = the AI's guess list contained the real password. The guess number is which try it was.</dd>
+      <dt>Conditions</dt><dd>The named runs of the experiment. Each gives the AI a different slice of info to isolate what matters.</dd>
+      <dt>Ablation (the "minus" rows)</dt><dd>Removing one group of details on purpose to see if it was load-bearing.</dd>
+    </dl>
+  </details>
 </main>
 
 <script>
 const $ = s => document.querySelector(s);
 const pct = x => Math.round(x*100) + '%';
 const esc = s => String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const tcol = {high:'var(--ok)', medium:'var(--warn)', low:'var(--no)'};
-const CONDLABEL = {C0:'no PII (baseline)', C1:'OSINT PII', C2:'ground-truth PII',
-  C3:'OSINT − Identity', C4:'OSINT − Temporal', C5:'OSINT − Location/Contact'};
+const confColor = t => ({high:'var(--ok)', medium:'var(--warn)', low:'var(--no)'}[t] || 'var(--mut)');
+
+// Revised design conditions, in plain language. Code badge kept for research traceability.
+const COND = {
+  C0:  {name:'No information at all',          tag:'control',    help:'The AI is told nothing. Shows what it does completely blind.'},
+  C1:  {name:'Generic guessing only',          tag:'baseline',   help:'Common passwords, no personal info. The "anyone could try this" floor.'},
+  C2:  {name:'All the public info we found',   tag:'the real test', tagClass:'test',
+        help:'Everything the online search recovered. This is the real question: is public info enough?'},
+  C3:  {name:'Perfect info (a cheat sheet)',   tag:'best case',  tagClass:'ceiling',
+        help:'The person’s exact true details. The best the AI could ever do — the ceiling.'},
+  C4a: {name:'Public info, minus name & email',tag:'drop identity', help:'Same public info, but their name / username / email removed.'},
+  C4b: {name:'Public info, minus birthday',    tag:'drop dates',    help:'Same public info, but their birth date removed.'},
+  C4c: {name:'Public info, minus location',    tag:'drop location', help:'Same public info, but their city / country removed.'},
+  C4d: {name:'Public info, minus phone',       tag:'drop phone',    help:'Same public info, but their phone number removed.'},
+};
 
 async function loadTargets(sel) {
   const d = await (await fetch('/api/targets')).json();
   $('#target').innerHTML = d.targets.map(t =>
-    `<option value="${t.target_id}">${t.target_id} · ${t.tier}</option>`).join('');
+    `<option value="${t.target_id}">${t.target_id} — ${t.tier} public footprint</option>`).join('');
   if (sel) $('#target').value = sel;
 }
 const kv = o => Object.keys(o).length
   ? Object.entries(o).map(([k,v])=>`<code>${esc(k)}=${esc(v)}</code>`).join(' ')
-  : '<span class="mut">— empty —</span>';
+  : '<span class="mut">— nothing given —</span>';
 
 function verdict(d){
   const c = Object.fromEntries(d.conditions.map(x=>[x.condition,x]));
-  const c1 = c.C1?.cracked, c2 = c.C2?.cracked;
-  if (c2 && c1) return `<b>Both cracked.</b> OSINT recovered enough PII to match ground truth — target is exposed.`;
-  if (c2 && !c1) return `<b>Noise penalty visible.</b> Full PII (C2) cracked it, but noisy OSINT (C1) missed — the OSINT gap is exactly what RQ2 measures.`;
-  if (!c2) return `<b>Nothing cracked, even with full PII.</b> This password isn't in the demo engine's pattern set (it only knows name+birth-year forms). Try a password like <code>Name1999</code>, or wire real PassLLM.`;
-  return '';
+  const osint = c.C2?.cracked;          // C2 = all public info (the real test)
+  const perfect = c.C3?.cracked;        // C3 = perfect info (ceiling)
+  if (osint) return {cls:'cracked', big:'The AI guessed the password from public info alone.',
+    why:'Only things that are public about this person were enough. That person is exposed.'};
+  if (perfect && !osint) return {cls:'', big:'Public info was NOT enough — but perfect info would be.',
+    why:'With the exact true details the AI succeeds; the messy public info fell short. That gap is the "noise penalty" this study measures.'};
+  if (!perfect) return {cls:'safe', big:'Not guessed, even with a perfect cheat sheet.',
+    why:'This password isn’t in the demo guesser’s simple pattern set (it only knows name + birth-year style passwords). Try a password like Name1999, or connect the real PassLLM model.'};
+  return {cls:'', big:'', why:''};
 }
 
 function render(d){
+  $('#glossary').hidden = false;
+  const v = verdict(d);
   const s = d.profile_summary || {fields:0,avg_confidence:0,tier:'low'};
+
   const obs = d.observations.length
     ? d.observations.map(o=>`<tr><td>${esc(o.field)}</td><td><code>${esc(o.value)}</code></td>
         <td class="mut">${esc(o.source)}</td></tr>`).join('')
-    : '<tr><td colspan="3" class="mut">nothing recovered</td></tr>';
+    : '<tr><td colspan="3" class="mut">nothing was found online</td></tr>';
+
   const prof = Object.keys(d.profile).length
     ? Object.entries(d.profile).map(([f,p])=>`<tr><td>${esc(f)}</td><td><code>${esc(p.value)}</code></td>
-        <td style="color:${tcol[p.tier]||'var(--mut)'}">${pct(p.confidence)}</td>
-        <td class="mut">${p.sources} src</td></tr>`).join('')
-    : '<tr><td colspan="4" class="mut">empty profile</td></tr>';
-  const conds = d.conditions.map(x=>`<tr>
-      <td><span class="pill">${x.condition}</span></td>
-      <td class="mut">${CONDLABEL[x.condition]||''}</td>
-      <td>${kv(x.pii_sent)}</td>
-      <td>${x.cracked ? `<span class="ok">CRACKED</span> <span class="mut">#${x.guess_number}</span>`
-                      : '<span class="no">missed</span>'}</td></tr>`).join('');
+        <td style="min-width:110px">${pct(p.confidence)}
+          <div class="conf-bar"><i style="width:${pct(p.confidence)};background:${confColor(p.tier)}"></i></div></td>
+        <td class="mut">${p.sources} source${p.sources===1?'':'s'}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="mut">no usable details</td></tr>';
+
+  const conds = d.conditions.map(x=>{
+    const m = COND[x.condition] || {name:x.condition, tag:'', help:''};
+    const result = x.cracked
+      ? `<span class="yes">✓ Guessed it</span> <span class="mut">· on try #${x.guess_number}</span>`
+      : `<span class="nope">✗ not guessed</span>`;
+    const g = x.top_guesses || [];
+    const list = g.length
+      ? g.map((pw,i)=>{
+          const hit = x.cracked && x.guess_number === i+1;
+          return `<code class="${hit?'hit':''}"><span class="rank">#${i+1}</span>${esc(pw)}${hit?' ✓':''}</code>`;
+        }).join('')
+      : '<span class="mut">no guesses produced</span>';
+    const note = (x.cracked && x.guess_number > g.length)
+      ? `<span class="mut"> …match was at #${x.guess_number}, past the first ${g.length} shown.</span>` : '';
+    const guesses = `<details class="guesses"><summary>show the AI's password candidates (top ${g.length})</summary>
+        <div class="glist">${list}</div>${note}</details>`;
+    return `<tr>
+      <td><div class="cond-name">${esc(m.name)}</div>
+          <div class="cond-help">${esc(m.help)}</div></td>
+      <td><span class="tag ${m.tagClass||''}">${esc(m.tag)}</span></td>
+      <td>${kv(x.pii_sent)}${guesses}</td>
+      <td>${result}</td></tr>`;
+  }).join('');
 
   $('#out').innerHTML = `
-    <div class="verdict">${verdict(d)}</div>
+    <div class="verdict ${v.cls}"><span class="big">${esc(v.big)}</span>
+      <span class="why">${esc(v.why)}</span></div>
     <div class="cards">
-      <div class="card"><h3>Target</h3>
-        <p><code>${esc(d.target_id)}</code> <span class="pill">${esc(d.footprint_tier)} footprint</span></p>
-        <p class="mut" style="margin-top:6px">crack budget: ${d.budget} guesses</p></div>
-      <div class="card"><h3>Seed · known start</h3>${kv(d.seed)}</div>
-      <div class="card full"><h3>OSINT observations · simulated recovery</h3>
-        <table><tr><th>field</th><th>value</th><th>source</th></tr>${obs}</table></div>
-      <div class="card full"><h3>Normalized profile
-        <span class="pill" style="color:${tcol[s.tier]}">${s.fields} fields · avg ${pct(s.avg_confidence)} · ${s.tier.toUpperCase()}</span></h3>
-        <table><tr><th>field</th><th>value</th><th>conf</th><th></th></tr>${prof}</table></div>
-      <div class="card full"><h3>Conditions → crack result</h3>
-        <table><tr><th>cond</th><th>meaning</th><th>PII sent to engine</th><th>result</th></tr>${conds}</table>
+      <div class="card"><h3>Who we tested</h3>
+        <div class="cap">A made-up person from the test roster.</div>
+        <p><code>${esc(d.target_id)}</code> <span class="pill">${esc(d.footprint_tier)} public footprint</span></p>
+        <p class="mut" style="margin-top:6px">The AI was allowed up to ${d.budget} guesses.</p></div>
+      <div class="card"><h3>Starting clues</h3>
+        <div class="cap">The little we knew before searching (used to kick off the search).</div>
+        ${kv(d.seed)}</div>
+      <div class="card full"><h3>What the online search turned up</h3>
+        <div class="cap">Raw public details the search recovered, and where each came from.</div>
+        <table><tr><th>detail</th><th>value</th><th>found via</th></tr>${obs}</table></div>
+      <div class="card full"><h3>Cleaned-up profile</h3>
+        <div class="cap">After merging and de-duplicating, with how confident we are in each —
+          <b style="color:${confColor(s.tier)}">${s.fields} details · avg ${pct(s.avg_confidence)} confidence · ${s.tier.toUpperCase()}</b>.</div>
+        <table><tr><th>detail</th><th>value</th><th>confidence</th><th>backed by</th></tr>${prof}</table></div>
+      <div class="card full"><h3>The experiment · what info ⟶ did the AI guess?</h3>
+        <div class="cap">We run the guesser several times. Each run gives it a different slice of
+          info, so we can see which details actually help it guess the password.</div>
+        <table><tr><th>what the AI was given</th><th>run</th><th>exact info sent</th><th>result</th></tr>${conds}</table>
         <div class="legend">
-          <b>C1</b> = real (noisy OSINT) · <b>C2</b> = perfect PII (ceiling) · gap = noise penalty (RQ2).<br>
-          <b>C3/C4/C5</b> drop one PII group — whichever break the crack are the load-bearing groups (RQ3).
+          <b>How to read it:</b> the <span class="tag test" style="display:inline-block">the real test</span>
+          row is public info only — if it guessed, public info was enough.
+          The <span class="tag ceiling" style="display:inline-block">best case</span> row is perfect info.
+          The gap between them is the <b>noise penalty</b>.<br>
+          Each <b>"minus"</b> row drops one kind of detail on purpose — if dropping it stops the guess,
+          that detail was doing the heavy lifting.
         </div></div>
     </div>`;
 }
@@ -195,16 +321,17 @@ $('#create').onclick = async () => {
     headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   const d = await r.json();
   if(!r.ok){ $('#addStatus').innerHTML = `<span class="no">${esc(d.detail)}</span>`; return; }
-  $('#addStatus').innerHTML = `<span class="ok">created ${esc(d.target_id)}</span> · ${esc(d.tier)}`;
+  $('#addStatus').innerHTML = `<span class="yes">created ${esc(d.target_id)}</span> · ${esc(d.tier)} footprint`;
   await loadTargets(d.target_id);
 };
 
 $('#run').onclick = async () => {
-  $('#status').textContent = 'running…';
+  $('#status').textContent = 'running the test…';
   const r = await fetch('/api/run', {method:'POST',
     headers:{'Content-Type':'application/json'}, body:JSON.stringify({target_id:$('#target').value})});
   $('#status').textContent = '';
-  if(!r.ok){ $('#out').innerHTML = `<div class="verdict no">refused: ${esc((await r.json()).detail)}</div>`; return; }
+  if(!r.ok){ $('#out').innerHTML = `<div class="verdict cracked"><span class="big">Refused</span>
+    <span class="why">${esc((await r.json()).detail)}</span></div>`; return; }
   render(await r.json());
 };
 
@@ -212,22 +339,24 @@ $('#runReal').onclick = async () => {
   const r = await fetch('/api/collect', {method:'POST',
     headers:{'Content-Type':'application/json'}, body:JSON.stringify({target_id:$('#target').value})});
   const d = await r.json();
-  if(!r.ok){ $('#out').innerHTML = `<div class="verdict no">refused: ${esc(d.detail)}</div>`; return; }
+  if(!r.ok){ $('#out').innerHTML = `<div class="verdict cracked"><span class="big">Refused</span>
+    <span class="why">${esc(d.detail)}</span></div>`; return; }
   const jid = d.job_id;
   const poll = async () => {
     const j = await (await fetch('/api/job/'+jid)).json();
     if (j.status === 'running') {
-      $('#status').innerHTML = `<span class="mut">real scan… ${j.progress||0}% · ${esc(j.message||'')}</span>`;
+      $('#status').innerHTML = `<span class="mut">live search… ${j.progress||0}% · ${esc(j.message||'')}</span>`;
       setTimeout(poll, 1500);
     } else if (j.status === 'done') {
       $('#status').textContent = '';
       render(j.result);
     } else {
       $('#status').textContent = '';
-      $('#out').innerHTML = `<div class="verdict no">scan failed: ${esc(j.error||'error')}</div>`;
+      $('#out').innerHTML = `<div class="verdict cracked"><span class="big">Search failed</span>
+        <span class="why">${esc(j.error||'error')}</span></div>`;
     }
   };
-  $('#status').textContent = 'starting real scan…';
+  $('#status').textContent = 'starting live search…';
   poll();
 };
 
@@ -236,7 +365,7 @@ async function initMode(){
     const c = await (await fetch('/api/config')).json();
     if (c.real_available) {
       $('#runReal').hidden = false;
-      $('.demo').textContent = 'REAL MODE · live OSINT';
+      $('.demo').textContent = 'REAL MODE · live online search';
       $('.demo').style.color = '#ffb3b3';
       $('.demo').style.background = '#3a1414';
       $('.demo').style.borderColor = '#5a2020';
