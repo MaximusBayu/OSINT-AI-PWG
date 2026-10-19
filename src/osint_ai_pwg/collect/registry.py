@@ -14,6 +14,7 @@ import yaml
 from osint_ai_pwg.collect.base import Collector
 from osint_ai_pwg.collect.scrapers import REGION_SCRAPERS
 from osint_ai_pwg.collect.tools.holehe import HoleheCollector
+from osint_ai_pwg.collect.tools.maigret import MaigretCollector
 from osint_ai_pwg.collect.tools.sherlock import SherlockCollector
 from osint_ai_pwg.collect.tools.spiderfoot import SpiderFootCollector
 from osint_ai_pwg.collect.tools.theharvester import TheHarvesterCollector
@@ -41,7 +42,11 @@ def build_collectors(
     sherlock/holehe), so they are included only when their URLs are passed in. This keeps
     the offline default to the subprocess tools plus region scrapers.
     """
-    collectors: list[Collector] = [SherlockCollector(runner), HoleheCollector(runner)]
+    collectors: list[Collector] = [
+        SherlockCollector(runner),
+        HoleheCollector(runner),
+        MaigretCollector(),
+    ]
     if spiderfoot_url:
         collectors.append(SpiderFootCollector(spiderfoot_url))
     if theharvester_url:

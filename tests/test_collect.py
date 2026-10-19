@@ -11,6 +11,7 @@ from osint_ai_pwg.collect.registry import build_collectors
 from osint_ai_pwg.collect.seed import derive_seed
 from osint_ai_pwg.collect.store import load_observations, save_observations
 from osint_ai_pwg.collect.tools.holehe import HoleheCollector
+from osint_ai_pwg.collect.tools.maigret import MaigretCollector
 from osint_ai_pwg.collect.tools.sherlock import SherlockCollector
 from osint_ai_pwg.collect.tools.theharvester import TheHarvesterCollector
 from osint_ai_pwg.personas.schema import GroundTruth, PasswordKind
@@ -28,6 +29,17 @@ HOLEHE_OUT = """
 [+] spotify.com
 [-] amazon.com
 """
+
+MAIGRET_REPORT = {
+    "GitHub": {
+        "status": {"status": "Claimed",
+                   "ids": {"fullname": "The Octocat", "location": "San Francisco"}},
+    },
+    "GitHubGist [GitHub]": {
+        "status": {"status": "Claimed", "ids": {}},
+    },
+    "NotAThing": {"status": {"status": "Available", "ids": {}}},
+}
 
 
 def _fixed_runner(output: str):
@@ -47,6 +59,28 @@ def test_holehe_parse() -> None:
     obs = c.collect("t01", {"email": "rina48@example.com"})
     assert {o.source for o in obs} == {"holehe:twitter.com", "holehe:spotify.com"}
     assert all(o.group is FieldGroup.IDENTITY for o in obs)   # email is Identity (revised)
+
+
+def test_maigret_collect_maps_claimed_sites_and_extracted_pii() -> None:
+    c = MaigretCollector(report_runner=lambda cmd: MAIGRET_REPORT)
+    obs = c.collect("t01", {"username": "octocat"})
+    # 2 claimed sites -> 2 username confirmations + 1 name + 1 city = 4 observations.
+    assert len(obs) == 4
+    usernames = [o for o in obs if o.field == "username"]
+    assert {o.source for o in usernames} == {"maigret:github", "maigret:githubgist"}
+    assert all(o.group is FieldGroup.IDENTITY and o.value == "octocat" for o in usernames)
+    names = [o for o in obs if o.field == "name"]
+    assert len(names) == 1 and names[0].value == "The Octocat"
+    assert names[0].group is FieldGroup.IDENTITY
+    cities = [o for o in obs if o.field == "city"]
+    assert len(cities) == 1 and cities[0].value == "San Francisco"
+    assert cities[0].group is FieldGroup.LOCATION
+
+
+def test_maigret_missing_username_yields_nothing() -> None:
+    c = MaigretCollector(report_runner=lambda cmd: MAIGRET_REPORT)
+    assert c.collect("t01", {}) == []
+    assert c.collect("t01", {"email": "x@example.com"}) == []
 
 
 def test_missing_seed_field_yields_nothing() -> None:
@@ -81,17 +115,17 @@ def test_registry_general_plus_region(tmp_path: Path) -> None:
     cfg = tmp_path / "regions.yaml"
     cfg.write_text("regions:\n  western:\n    scrapers: [linkedin, github]\n", encoding="utf-8")
     names = {c.name for c in build_collectors(region="western", config_path=cfg)}
-    assert {"sherlock", "holehe", "linkedin", "github"} <= names
+    assert {"sherlock", "holehe", "maigret", "linkedin", "github"} <= names
     # no region -> general tools only
-    assert {c.name for c in build_collectors(region=None, config_path=cfg)} == {"sherlock", "holehe"}
+    assert {c.name for c in build_collectors(region=None, config_path=cfg)} == {"sherlock", "holehe", "maigret"}
 
 
 def test_registry_includes_hosted_services_when_urls_given() -> None:
     names = {c.name for c in build_collectors(
         spiderfoot_url="https://sf.example", theharvester_url="https://harvest.example")}
-    assert {"sherlock", "holehe", "spiderfoot", "theharvester"} <= names
+    assert {"sherlock", "holehe", "maigret", "spiderfoot", "theharvester"} <= names
     # no URLs -> hosted services stay out
-    assert {c.name for c in build_collectors()} == {"sherlock", "holehe"}
+    assert {c.name for c in build_collectors()} == {"sherlock", "holehe", "maigret"}
 
 
 class FakeHarvestHttp:
