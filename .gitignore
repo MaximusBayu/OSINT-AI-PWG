@@ -40,5 +40,3 @@ PassLLM/
 ROADMAP.md
 /docs
 Password_guess_test (2).pdf
-__pycache__/
-*.pyc
