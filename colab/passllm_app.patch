@@ -1,0 +1,63 @@
+--- app.py.orig	2026-10-26 02:12:05.075369936 +0700
++++ app.py	2026-10-26 02:12:30.126810502 +0700
+@@ -16,6 +16,7 @@
+     parser.add_argument("--fast", action="store_true", help="Use fast mode (less accurate, quicker, for low-end GPUs)")
+     parser.add_argument("--superfast", action="store_true", help="Use super fast mode (least accurate, quickest, for very low-end GPUs)")
+     parser.add_argument("--deep", action="store_true", help="Use deep mode (highest accuracy, slowest, for high-end GPUs)")
++    parser.add_argument("--base", action="store_true", help="Run the BASE model (skip LoRA adapter + weights) — ablation C0b")
+     return parser.parse_args()
+ 
+ def load_profile(args):
+@@ -29,25 +30,22 @@
+         except Exception as e:
+             print(f"[!] Error loading JSON: {e}")
+             sys.exit(1)
+-            
+-    if not profile:
+-        print("[!] Error: No target information provided.")
+-        print("    Usage: python app.py --file target.json")
+-        sys.exit(1)
+ 
++    # NOTE: an empty profile is allowed. The no-PII conditions (C0 empty prompt,
++    # C1 trawling) deliberately send {}. get_formatted_input handles {} fine.
+     return profile
+ 
+-def load():
++def load(base=False):
+     print("[+] Loading PassLLM System for Web UI...")
++    weights_path = Config.WEIGHTS_FILE
+     try:
+         model, tokenizer = build_model()
+-        model = inject_lora_layers(model)
+-
+-        weights_path = Config.WEIGHTS_FILE
+-        print(f"[+] Loading Weights from: {weights_path}...")
++        if not base:
++            model = inject_lora_layers(model)
+ 
+-        checkpoint = torch.load(weights_path, map_location="cpu")
+-        model.load_state_dict(checkpoint, strict=False)    
++            print(f"[+] Loading Weights from: {weights_path}...")
++            checkpoint = torch.load(weights_path, map_location="cpu")
++            model.load_state_dict(checkpoint, strict=False)    
+ 
+         model.eval()
+         return model, tokenizer
+@@ -60,7 +58,7 @@
+     args = parse_arguments()
+     # Load our system (model + tokenizer)
+     print(f"Loading PassLLM System...")
+-    model, tokenizer = load()
++    model, tokenizer = load(args.base)
+ 
+     profile = load_profile(args)
+ 
+@@ -77,7 +75,7 @@
+         schedule = Config.SCHEDULE_STANDARD
+         print("[+] Mode: STANDARD (High accuracy)")
+ 
+-    print(f"[+] Locked: {profile['name']}")
++    print(f"[+] Locked: {profile.get('name', '(empty profile — no PII)')}")
+     print("[+] Guessing...")
+ 
+     candidates = predict_password(model, tokenizer, profile, beam_schedule=schedule)

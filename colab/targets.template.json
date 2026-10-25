@@ -1,0 +1,28 @@
+[
+  {
+    "target_id": "t01",
+    "osint_profile": {
+      "name": "Rina Pratama",
+      "username": "rina48",
+      "email": "rina48@example.com",
+      "birth_year": "1995",
+      "birth_month": "06",
+      "birth_day": "01",
+      "city": "Bandung",
+      "country": "Indonesia",
+      "phone": "+6281234567890"
+    },
+    "gt_profile": {
+      "name": "Rina Pratama",
+      "username": "rina48",
+      "email": "rina48@example.com",
+      "birth_year": "1995",
+      "birth_month": "06",
+      "birth_day": "01",
+      "city": "Bandung",
+      "country": "Indonesia",
+      "phone": "+6281234567890"
+    },
+    "password": "Rina1995!"
+  }
+]
