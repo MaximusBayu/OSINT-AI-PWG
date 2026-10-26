@@ -45,3 +45,18 @@ def test_run_demo_without_real_guesses_stays_demo() -> None:
     assert all(c["engine"] == "demo" for c in out["conditions"])
     # demo top_guesses have no confidence
     assert all(g["confidence"] is None for c in out["conditions"] for g in c["top_guesses"])
+
+
+def test_export_entry_shape() -> None:
+    roster = _roster()
+    tid = next(iter(roster))
+    out = run_demo(tid, roster)
+    ex = out["export"]
+    assert ex["target_id"] == tid
+    assert set(ex) == {"target_id", "osint_profile", "gt_profile", "password"}
+    assert ex["password"] == roster[tid].password
+    # profile keys are PassLLM schema keys, never raw/legacy field names
+    keys = {"name", "username", "email", "birth_year", "birth_month", "birth_day",
+            "city", "country", "phone"}
+    for prof in (ex["osint_profile"], ex["gt_profile"]):
+        assert set(prof) <= keys

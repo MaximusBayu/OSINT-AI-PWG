@@ -139,6 +139,8 @@ def main() -> None:
     args = ap.parse_args()
 
     targets = json.loads(Path(args.targets).read_text(encoding="utf-8"))
+    if isinstance(targets, dict):          # a single exported target entry
+        targets = [targets]
     tmp = Path("_matrix_tmp")
     tmp.mkdir(exist_ok=True)
 

@@ -159,8 +159,20 @@ const pct = x => Math.round(x*100) + '%';
 const esc = s => String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const escAttr = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const tcol = {high:'var(--ok)', medium:'var(--warn)', low:'var(--no)'};
-const CONDLABEL = {C0:'no PII (baseline)', C1:'OSINT PII', C2:'ground-truth PII',
-  C3:'OSINT − Identity', C4:'OSINT − Temporal', C5:'OSINT − Location/Contact'};
+const CONDLABEL = {C0:'no PII (empty prompt)', C1:'no PII (trawling)', C2:'full OSINT PII',
+  C3:'ground-truth PII', C4a:'OSINT − Identity', C4b:'OSINT − Temporal',
+  C4c:'OSINT − Location', C4d:'OSINT − Contact'};
+let lastResult = null;
+
+function dlExport(){
+  if (!lastResult || !lastResult.export) return;
+  const blob = new Blob([JSON.stringify(lastResult.export, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (lastResult.export.target_id || 'target') + '.targets.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 async function loadTargets(sel) {
   const d = await (await fetch('/api/targets')).json();
@@ -174,14 +186,15 @@ const kv = o => Object.keys(o).length
 
 function verdict(d){
   const c = Object.fromEntries(d.conditions.map(x=>[x.condition,x]));
-  const c1 = c.C1?.cracked, c2 = c.C2?.cracked;
-  if (c2 && c1) return `<b>Both cracked.</b> OSINT recovered enough PII to match ground truth — target is exposed.`;
-  if (c2 && !c1) return `<b>Noise penalty visible.</b> Full PII (C2) cracked it, but noisy OSINT (C1) missed — the OSINT gap is exactly what RQ2 measures.`;
-  if (!c2) return `<b>Nothing cracked, even with full PII.</b> This password isn't in the demo engine's pattern set (it only knows name+birth-year forms). Try a password like <code>Name1999</code>, or wire real PassLLM.`;
+  const c2 = c.C2?.cracked, c3 = c.C3?.cracked;
+  if (c3 && c2) return `<b>Both cracked.</b> OSINT recovered enough PII to crack the password.`;
+  if (c3 && !c2) return `<b>Noise penalty visible.</b> Ground-truth PII (C3) cracks it, but OSINT PII (C2) doesn't — that gap is exactly what RQ2 measures.`;
+  if (!c3) return `<b>Even full ground-truth PII didn't crack it.</b> The password isn't guessable from the recovered PII — check it's a realistic form, or wire real PassLLM.`;
   return '';
 }
 
 function render(d){
+  lastResult = d;
   const s = d.profile_summary || {fields:0,avg_confidence:0,tier:'low'};
   const obs = d.observations.length
     ? d.observations.map(o=>{
@@ -219,7 +232,8 @@ function render(d){
     <div class="cards">
       <div class="card"><h3>Target</h3>
         <p><code>${esc(d.target_id)}</code> <span class="pill">${esc(d.footprint_tier)} footprint</span> ${engBadge}</p>
-        <p class="mut" style="margin-top:6px">crack budget: ${d.budget} guesses</p></div>
+        <p class="mut" style="margin-top:6px">crack budget: ${d.budget} guesses</p>
+        <p style="margin-top:10px"><button class="ghost" onclick="dlExport()">⇩ targets.json</button></p></div>
       <div class="card"><h3>Seed · known start</h3>${kv(d.seed)}</div>
       <div class="card full"><h3>OSINT observations · ${d.mode === 'real' ? 'live recovery' : 'simulated recovery'}</h3>
         <table><tr><th>field</th><th>value</th><th>source</th></tr>${obs}</table>
@@ -230,8 +244,8 @@ function render(d){
       <div class="card full"><h3>Conditions → crack result</h3>
         <table><tr><th>cond</th><th>meaning</th><th>PII sent to engine</th><th>result</th><th>top guesses</th></tr>${conds}</table>
         <div class="legend">
-          <b>C1</b> = real (noisy OSINT) · <b>C2</b> = perfect PII (ceiling) · gap = noise penalty (RQ2).<br>
-          <b>C3/C4/C5</b> drop one PII group — whichever break the crack are the load-bearing groups (RQ3).
+          <b>C2</b> = full OSINT PII · <b>C3</b> = ground-truth PII (ceiling) · gap = noise penalty (RQ2).<br>
+          <b>C4a–d</b> drop one PII group — whichever break the crack are the load-bearing groups (RQ3).
         </div></div>
     </div>`;
 }

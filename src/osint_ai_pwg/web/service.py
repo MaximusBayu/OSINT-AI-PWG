@@ -93,6 +93,16 @@ def _gt_profile(gt: GroundTruth) -> NormalizedProfile:
     return NormalizedProfile(gt.target_id, fields, gt.footprint_tier)
 
 
+def _export_entry(gt: GroundTruth, osint: NormalizedProfile, gt_prof: NormalizedProfile) -> dict:
+    """targets.json entry for run_matrix.py: OSINT + GT profiles in PassLLM key form."""
+    return {
+        "target_id": gt.target_id,
+        "osint_profile": build_passllm_object(osint, Condition.C2),
+        "gt_profile": build_passllm_object(gt_prof, Condition.C2),
+        "password": gt.password,
+    }
+
+
 def _obj_for(cond: Condition, osint: NormalizedProfile, gt_prof: NormalizedProfile) -> dict[str, str]:
     # Revised design: C0/C1 send no PII; C3 is full ground truth; C2 + C4a-d come from OSINT.
     if cond in (Condition.C0, Condition.C1):
@@ -161,6 +171,7 @@ def _assemble_result(
         "profile_summary": profile_summary(osint_profile),
         "budget": _BUDGET,
         "conditions": conditions_out,
+        "export": _export_entry(gt, osint_profile, gt_profile),
     }
 
 
