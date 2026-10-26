@@ -14,7 +14,10 @@ Prereqs (do once, in order):
 Input:  targets.json — list of targets, each with an OSINT profile, a
         ground-truth profile, and the true password. See targets.template.json.
 Usage:  python run_matrix.py --targets targets.json --mode fast
-Output: matrix_results.json (ranked guesses + crack result per target x condition).
+        python run_matrix.py --targets targets.json --mode fast --post-url https://pwg.maxflow.space/api/passllm/import
+Output: matrix_results.json (ranked guesses + crack result per target x condition),
+        and — with --post-url — the results POSTed to the VPS so the web UI shows
+        the real PassLLM guesses.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ import argparse
 import json
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 # --- ablation model (mirrors src/osint_ai_pwg/guess/prompt.py) ---------------
@@ -91,13 +95,17 @@ def results_path(stdout: str) -> Path | None:
     return None
 
 
-def read_guesses(path: Path | None) -> list[str]:
+def read_guesses_full(path: Path | None) -> list[dict]:
+    """PassLLM's results file -> ranked [{password, confidence, log_score}]."""
     if path is None or not path.exists():
         return []
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, list):
         return []
-    return [str(c["password"]) for c in data if isinstance(c, dict) and c.get("password")]
+    return [
+        {"password": str(c["password"]), "confidence": c.get("confidence"), "log_score": c.get("log_score")}
+        for c in data if isinstance(c, dict) and c.get("password")
+    ]
 
 
 def guess_number(guesses: list[str], password: str) -> int | None:
@@ -107,11 +115,27 @@ def guess_number(guesses: list[str], password: str) -> int | None:
         return None
 
 
+def post_results(url: str, target_id: str, rows: list) -> None:
+    """POST a target's ranked guesses to the VPS import endpoint."""
+    conditions = {
+        row["condition"]: row.get("top_10_full")
+        or [{"password": p, "confidence": None} for p in row["top_10"]]
+        for row in rows
+    }
+    payload = {"target_id": target_id, "conditions": conditions}
+    req = urllib.request.Request(
+        url, data=json.dumps(payload).encode("utf-8"),
+        method="POST", headers={"Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(req, timeout=30)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--targets", default="targets.json")
     ap.add_argument("--mode", default="fast", choices=["fast", "superfast", "deep", "standard"])
     ap.add_argument("--budget", type=int, default=1000)
+    ap.add_argument("--post-url", default=None, help="POST results to this VPS /api/passllm/import endpoint")
     args = ap.parse_args()
 
     targets = json.loads(Path(args.targets).read_text(encoding="utf-8"))
@@ -129,10 +153,11 @@ def main() -> None:
             profile = build_profile(cond, osint, gt)
             try:
                 stdout = run_app(profile, args.mode, base, tmp)
-                guesses = read_guesses(results_path(stdout))
+                full = read_guesses_full(results_path(stdout))
             except Exception as e:  # a bad condition must not sink the matrix
                 print(f"[!] {tid} {cond}: {e}")
-                guesses = []
+                full = []
+            guesses = [g["password"] for g in full]
             gn = guess_number(guesses, password)
             rows.append({
                 "condition": cond,
@@ -140,9 +165,17 @@ def main() -> None:
                 "guess_number": gn,
                 "num_guesses": len(guesses),
                 "top_10": guesses[:10],
+                "top_10_full": full[:10],
             })
             print(f"[+] {tid} {cond}: {len(guesses)} guesses, cracked={rows[-1]['cracked']} (gn={gn})")
         out[tid] = rows
+
+        if args.post_url:
+            try:
+                post_results(args.post_url, tid, rows)
+                print(f"[+] posted {tid} results to {args.post_url}")
+            except Exception as e:
+                print(f"[!] failed to post {tid}: {e}")
 
     Path("matrix_results.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
     print("\n[+] wrote matrix_results.json")

@@ -103,22 +103,39 @@ def _obj_for(cond: Condition, osint: NormalizedProfile, gt_prof: NormalizedProfi
 
 
 def _assemble_result(
-    gt: GroundTruth, seed: dict[str, str], observations: list[Observation], engine, mode: str
+    gt: GroundTruth, seed: dict[str, str], observations: list[Observation], engine, mode: str,
+    real_guesses: dict[str, list[dict]] | None = None,
 ) -> dict:
-    """Normalize -> guess every condition -> evaluate. Shared by demo and real modes."""
+    """Normalize -> guess every condition -> evaluate. Shared by demo and real modes.
+
+    `real_guesses` maps a condition (e.g. "C2") to PassLLM's ranked output
+    `[{"password", "confidence", "log_score"}]`, imported from Colab. When present for a
+    condition, the real guesses are used for the crack verdict instead of the demo engine.
+    """
     osint_profile = normalize(observations, gt.footprint_tier)
     gt_profile = _gt_profile(gt)
+    real = real_guesses or {}
 
     conditions_out = []
     for cond in _CONDITIONS:
         obj = _obj_for(cond, osint_profile, gt_profile)
-        guesses = engine.guesses(obj)
+        key = cond.value
+        if key in real:
+            glist = real[key]
+            guesses = [g["password"] for g in glist]
+            top = [{"password": g["password"], "confidence": g.get("confidence")} for g in glist[:_TOP_N]]
+            eng = "passllm"
+        else:
+            guesses = engine.guesses(obj)
+            top = [{"password": g, "confidence": None} for g in guesses[:_TOP_N]]
+            eng = "demo"
         gn = guess_number(guesses, gt.password)
         cracked = gn is not None and gn <= _BUDGET
         conditions_out.append({
             "condition": cond.value,
+            "engine": eng,
             "pii_sent": obj,
-            "top_guesses": guesses[:_TOP_N],
+            "top_guesses": top,
             "cracked": cracked,
             "guess_number": gn if cracked else None,
         })
@@ -127,6 +144,7 @@ def _assemble_result(
         "target_id": gt.target_id,
         "footprint_tier": gt.footprint_tier.value,
         "mode": mode,
+        "guess_engine": "passllm" if real else "demo",
         "seed": seed,
         "observations": [
             {"field": o.field, "value": o.value, "source": o.source, "url": o.url} for o in observations
@@ -151,6 +169,7 @@ def run_demo(
     roster: dict[str, GroundTruth],
     collector: DemoCollector | None = None,
     engine: DemoEngine | None = None,
+    real_guesses: dict[str, list[dict]] | None = None,
 ) -> dict:
     """Demo mode: simulated OSINT recovery from the planted ground truth."""
     gt = roster.get(target_id)
@@ -160,7 +179,7 @@ def run_demo(
     engine = engine or DemoEngine()
     seed = derive_seed(gt)
     observations = collector.collect(target_id, seed)
-    return _assemble_result(gt, seed, observations, engine, mode="demo")
+    return _assemble_result(gt, seed, observations, engine, mode="demo", real_guesses=real_guesses)
 
 
 def run_real(
@@ -171,6 +190,7 @@ def run_real(
     progress=None,
     theharvester_url: str | None = None,
     collectors: list | None = None,
+    real_guesses: dict[str, list[dict]] | None = None,
 ) -> dict:
     """Real mode: live OSINT from all wired tools, then normalize -> guess -> evaluate.
 
@@ -217,7 +237,7 @@ def run_real(
 
     observations = collect_target(target_id, seed, collectors, timeout_s=600, on_collector=on_collector)
     progress(80, "normalize — dedupe + confidence scoring")
-    result = _assemble_result(gt, seed, observations, engine, mode="real")
+    result = _assemble_result(gt, seed, observations, engine, mode="real", real_guesses=real_guesses)
     progress(98, "guess + evaluate — complete")
     return result
 

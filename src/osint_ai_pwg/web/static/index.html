@@ -104,6 +104,7 @@
       <button class="primary" id="run">Run (demo)</button>
       <button class="ghost" id="runReal" hidden>Run — REAL OSINT</button>
       <button class="ghost" id="toggleAdd">＋ Add self-target</button>
+      <button class="ghost" id="togglePassllm">⇪ Load PassLLM results</button>
       <span id="status" class="mut"></span>
     </div>
   </div>
@@ -128,6 +129,17 @@
     <div class="controls" style="margin-top:12px">
       <button class="primary" id="create">Create target</button>
       <span id="addStatus" class="mut"></span>
+    </div>
+  </div>
+
+  <div id="passllmCard" class="panel" hidden>
+    <h2>Load real PassLLM results</h2>
+    <div class="banner warn">Paste JSON from <b>Colab</b> (<code>run_matrix.py</code>). Format:
+      <code>{"target_id":"max","conditions":{"C2":[{"password":"…","confidence":0.8}]}}</code>.</div>
+    <textarea id="passllmJson" rows="8" style="width:100%;background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:ui-monospace,monospace;font-size:12px"></textarea>
+    <div class="controls" style="margin-top:10px">
+      <button class="primary" id="importPassllm">Import</button>
+      <span id="passllmStatus" class="mut"></span>
     </div>
   </div>
 
@@ -185,18 +197,28 @@ function render(d){
         <td style="color:${tcol[p.tier]||'var(--mut)'}">${pct(p.confidence)}</td>
         <td class="mut">${p.sources} src</td></tr>`).join('')
     : '<tr><td colspan="4" class="mut">empty profile</td></tr>';
-  const conds = d.conditions.map(x=>`<tr>
-      <td><span class="pill">${x.condition}</span></td>
+  const conds = d.conditions.map(x=>{
+    const top = (x.top_guesses||[]).slice(0,5).map(g=>
+      `<div style="font-size:12px"><code>${esc(g.password)}</code>${g.confidence!=null?` <span class="mut">${Math.round(g.confidence*100)}%</span>`:''}</div>`).join('')
+      || '<span class="mut">—</span>';
+    const badge = x.engine==='passllm' ? ' <span class="pill" style="color:#ffb3b3">LLM</span>' : '';
+    return `<tr>
+      <td><span class="pill">${x.condition}</span>${badge}</td>
       <td class="mut">${CONDLABEL[x.condition]||''}</td>
       <td>${kv(x.pii_sent)}</td>
       <td>${x.cracked ? `<span class="ok">CRACKED</span> <span class="mut">#${x.guess_number}</span>`
-                      : '<span class="no">missed</span>'}</td></tr>`).join('');
+                      : '<span class="no">missed</span>'}</td>
+      <td>${top}</td></tr>`;
+  }).join('');
 
+  const engBadge = d.guess_engine === 'passllm'
+    ? '<span class="pill" style="color:#ffb3b3;background:#3a1414">real PassLLM</span>'
+    : '<span class="pill">demo engine</span>';
   $('#out').innerHTML = `
     <div class="verdict">${verdict(d)}</div>
     <div class="cards">
       <div class="card"><h3>Target</h3>
-        <p><code>${esc(d.target_id)}</code> <span class="pill">${esc(d.footprint_tier)} footprint</span></p>
+        <p><code>${esc(d.target_id)}</code> <span class="pill">${esc(d.footprint_tier)} footprint</span> ${engBadge}</p>
         <p class="mut" style="margin-top:6px">crack budget: ${d.budget} guesses</p></div>
       <div class="card"><h3>Seed · known start</h3>${kv(d.seed)}</div>
       <div class="card full"><h3>OSINT observations · ${d.mode === 'real' ? 'live recovery' : 'simulated recovery'}</h3>
@@ -206,7 +228,7 @@ function render(d){
         <span class="pill" style="color:${tcol[s.tier]}">${s.fields} fields · avg ${pct(s.avg_confidence)} · ${s.tier.toUpperCase()}</span></h3>
         <table><tr><th>field</th><th>value</th><th>conf</th><th></th></tr>${prof}</table></div>
       <div class="card full"><h3>Conditions → crack result</h3>
-        <table><tr><th>cond</th><th>meaning</th><th>PII sent to engine</th><th>result</th></tr>${conds}</table>
+        <table><tr><th>cond</th><th>meaning</th><th>PII sent to engine</th><th>result</th><th>top guesses</th></tr>${conds}</table>
         <div class="legend">
           <b>C1</b> = real (noisy OSINT) · <b>C2</b> = perfect PII (ceiling) · gap = noise penalty (RQ2).<br>
           <b>C3/C4/C5</b> drop one PII group — whichever break the crack are the load-bearing groups (RQ3).
@@ -215,6 +237,19 @@ function render(d){
 }
 
 $('#toggleAdd').onclick = () => { $('#addCard').hidden = !$('#addCard').hidden; };
+$('#togglePassllm').onclick = () => { $('#passllmCard').hidden = !$('#passllmCard').hidden; };
+
+$('#importPassllm').onclick = async () => {
+  let payload;
+  try { payload = JSON.parse($('#passllmJson').value); }
+  catch(e) { $('#passllmStatus').innerHTML = '<span class="no">invalid JSON</span>'; return; }
+  $('#passllmStatus').textContent = 'importing…';
+  const r = await fetch('/api/passllm/import', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  const d = await r.json();
+  if(!r.ok){ $('#passllmStatus').innerHTML = `<span class="no">${esc(d.detail)}</span>`; return; }
+  $('#passllmStatus').innerHTML = `<span class="ok">imported</span> ${d.conditions} conditions for <code>${esc(d.target_id)}</code> — re-run to see the real guesses`;
+};
 
 $('#create').onclick = async () => {
   const v = id => $('#f_'+id).value.trim();

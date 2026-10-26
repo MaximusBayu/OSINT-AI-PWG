@@ -56,8 +56,20 @@ copy the patched `app.py` over the clone):
 !python run_matrix.py --targets targets.json --mode fast
 ```
 
-3. Grab `matrix_results.json`. It records, per target × condition: `cracked`,
-   `guess_number`, `num_guesses`, and `top_10`.
+To ship the real guesses back to the web UI in one shot, add `--post-url` (the VPS
+is a public URL, so Colab can reach it directly):
+
+```
+!python run_matrix.py --targets targets.json --mode fast \
+      --post-url https://pwg.maxflow.space/api/passllm/import
+```
+
+3. `matrix_results.json` records, per target × condition: `cracked`, `guess_number`,
+   `num_guesses`, `top_10` (passwords), and `top_10_full` (with confidence).
+
+4. On the VPS UI: open the target, hit **⇪ Load PassLLM results** to paste the JSON
+   (if you didn't use `--post-url`), then re-run — the guess stage shows the real
+   PassLLM guesses with confidence instead of the demo engine.
 
 ## Notes
 
