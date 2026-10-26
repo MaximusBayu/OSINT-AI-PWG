@@ -13,6 +13,7 @@ import yaml
 
 from osint_ai_pwg.collect.base import Collector
 from osint_ai_pwg.collect.scrapers import REGION_SCRAPERS
+from osint_ai_pwg.collect.tools.h8mail import H8mailCollector
 from osint_ai_pwg.collect.tools.holehe import HoleheCollector
 from osint_ai_pwg.collect.tools.maigret import MaigretCollector
 from osint_ai_pwg.collect.tools.sherlock import SherlockCollector
@@ -46,6 +47,7 @@ def build_collectors(
         SherlockCollector(runner),
         HoleheCollector(runner),
         MaigretCollector(),
+        H8mailCollector(),
     ]
     if spiderfoot_url:
         collectors.append(SpiderFootCollector(spiderfoot_url))

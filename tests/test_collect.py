@@ -117,7 +117,7 @@ def test_registry_general_plus_region(tmp_path: Path) -> None:
     names = {c.name for c in build_collectors(region="western", config_path=cfg)}
     assert {"sherlock", "holehe", "maigret", "linkedin", "github"} <= names
     # no region -> general tools only
-    assert {c.name for c in build_collectors(region=None, config_path=cfg)} == {"sherlock", "holehe", "maigret"}
+    assert {c.name for c in build_collectors(region=None, config_path=cfg)} == {"sherlock", "holehe", "maigret", "h8mail"}
 
 
 def test_registry_includes_hosted_services_when_urls_given() -> None:
@@ -125,7 +125,7 @@ def test_registry_includes_hosted_services_when_urls_given() -> None:
         spiderfoot_url="https://sf.example", theharvester_url="https://harvest.example")}
     assert {"sherlock", "holehe", "maigret", "spiderfoot", "theharvester"} <= names
     # no URLs -> hosted services stay out
-    assert {c.name for c in build_collectors()} == {"sherlock", "holehe", "maigret"}
+    assert {c.name for c in build_collectors()} == {"sherlock", "holehe", "maigret", "h8mail"}
 
 
 class FakeHarvestHttp:

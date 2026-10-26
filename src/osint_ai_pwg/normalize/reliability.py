@@ -13,6 +13,7 @@ SOURCE_GRADE: dict[str, str] = {
     "sherlock": "B",
     "holehe": "B",
     "maigret": "B",        # account existence + socid-extractor profile data
+    "h8mail": "B",         # breach-dump PII (direct leak, but can be stale)
     "linkedin": "B",      # established professional platform
     "github": "B",        # verified profile data
     "theharvester": "C",
