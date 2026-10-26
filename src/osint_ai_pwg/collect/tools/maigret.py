@@ -58,7 +58,7 @@ def _map(data: dict, target_id: str, username: str) -> list[Observation]:
     For each site with status "Claimed", record the username confirmation plus any
     extracted fullname (Identity/name) and location (Location/city). Location is a
     best-effort mapping: Maigret reports a free-text string that is usually a city but
-    may be a region or country.
+    may be a region or country. The profile URL (`url_user`) is attached as proof.
     """
     obs: list[Observation] = []
     for site_name, entry in (data or {}).items():
@@ -68,6 +68,7 @@ def _map(data: dict, target_id: str, username: str) -> list[Observation]:
         if status.get("status") != "Claimed":
             continue
         tag = site_name.split(" [")[0].strip().lower() or "unknown"
+        url = (entry.get("url_user") or "").strip()
         obs.append(
             Observation(
                 target_id=target_id,
@@ -76,6 +77,7 @@ def _map(data: dict, target_id: str, username: str) -> list[Observation]:
                 value=username,
                 source=f"maigret:{tag}",
                 directness=Directness.STATED,
+                url=url,
             )
         )
         ids = status.get("ids") or {}
@@ -89,6 +91,7 @@ def _map(data: dict, target_id: str, username: str) -> list[Observation]:
                     value=fullname,
                     source=f"maigret:{tag}",
                     directness=Directness.STATED,
+                    url=url,
                 )
             )
         location = (ids.get("location") or "").strip()
@@ -101,6 +104,7 @@ def _map(data: dict, target_id: str, username: str) -> list[Observation]:
                     value=location,
                     source=f"maigret:{tag}",
                     directness=Directness.STATED,
+                    url=url,
                 )
             )
     return obs

@@ -25,24 +25,36 @@ class JobStore:
         with self._lock:
             self._jobs.setdefault(job_id, {}).update(kw)
 
+    def _append_step(self, job_id: str, step: dict) -> None:
+        with self._lock:
+            self._jobs.setdefault(job_id, {}).setdefault("steps", []).append(step)
+
     def get(self, job_id: str) -> dict | None:
         with self._lock:
             j = self._jobs.get(job_id)
-            return dict(j) if j is not None else None
+            if j is None:
+                return None
+            out = dict(j)
+            out["steps"] = list(j.get("steps", []))
+            return out
 
     def start(self, body: JobBody) -> str:
         job_id = uuid.uuid4().hex[:12]
-        self._set(job_id, status="running", progress=0, message="starting", result=None, error=None)
+        self._set(job_id, status="running", progress=0, message="starting", steps=[], result=None, error=None)
 
         def progress(pct: int, msg: str) -> None:
-            self._set(job_id, progress=max(0, min(99, pct)), message=msg)
+            pct = max(0, min(99, pct))
+            self._set(job_id, progress=pct, message=msg)
+            self._append_step(job_id, {"pct": pct, "message": msg})
 
         def run() -> None:
             try:
                 result = body(progress)
                 self._set(job_id, status="done", progress=100, message="complete", result=result)
+                self._append_step(job_id, {"pct": 100, "message": "complete"})
             except Exception as e:  # surface the failure to the poller
                 self._set(job_id, status="error", message="failed", error=str(e))
+                self._append_step(job_id, {"pct": 100, "message": "failed: " + str(e)})
 
         threading.Thread(target=run, daemon=True).start()
         return job_id

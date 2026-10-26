@@ -101,6 +101,7 @@ class Observation:
     source: str               # e.g. "sherlock:twitter"
     directness: Directness = Directness.STATED
     collected_at: str = field(default_factory=utcnow_iso)
+    url: str = ""             # optional source/proof link (e.g. the profile URL)
 
 
 @dataclass

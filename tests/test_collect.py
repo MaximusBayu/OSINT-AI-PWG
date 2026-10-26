@@ -194,3 +194,22 @@ def test_store_roundtrip(tmp_path: Path) -> None:
     obs = [Observation("t01", "email", FieldGroup.IDENTITY, "a@b", "holehe:x")]
     path = save_observations("t01", obs, tmp_path)
     assert load_observations(path)[0].source == "holehe:x"
+
+
+def test_sherlock_captures_profile_url() -> None:
+    c = SherlockCollector(runner=_fixed_runner(SHERLOCK_OUT))
+    obs = c.collect("t01", {"username": "rina48"})
+    assert {o.url for o in obs} == {"https://github.com/rina48", "https://twitter.com/rina48"}
+
+
+def test_on_collector_callbacks_fire() -> None:
+    events: list[tuple[str, str, int]] = []
+
+    def on(event: str, name: str, count: int = 0) -> None:
+        events.append((event, name, count))
+
+    collect_target("t01", {}, [_Ok(), _Ok()], timeout_s=5, on_collector=on)
+    starts = [e for e in events if e[0] == "start"]
+    dones = [e for e in events if e[0] == "done"]
+    assert len(starts) == 2 and len(dones) == 2
+    assert all(d[2] == 1 for d in dones)          # each _Ok returns 1 obs (pre-dedupe)

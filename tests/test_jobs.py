@@ -36,3 +36,13 @@ def test_job_error_is_captured() -> None:
 
 def test_unknown_job_is_none() -> None:
     assert JobStore().get("missing") is None
+
+
+def test_steps_are_recorded() -> None:
+    store = JobStore()
+    jid = store.start(lambda progress: (progress(20, "collect"), progress(80, "normalize"), {})[2])
+    done = _wait(store, jid)
+    msgs = [s["message"] for s in done["steps"]]
+    assert msgs[:2] == ["collect", "normalize"]
+    assert msgs[-1] == "complete"
+    assert done["steps"][-1]["pct"] == 100

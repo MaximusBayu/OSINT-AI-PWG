@@ -55,3 +55,14 @@ def test_no_seed_no_scan() -> None:
 def test_start_id_parsing() -> None:
     assert SpiderFootCollector._parse_scan_id('["SUCCESS", "abc"]') == "abc"
     assert SpiderFootCollector._parse_scan_id('"rawid"') == "rawid"
+
+
+def test_source_url_extracted_from_source_data() -> None:
+    row = {
+        "event_type": "HUMAN_NAME",
+        "data": "Rina Example",
+        "module": "sfp_names",
+        "source_data": "{'profileUrl': 'https://gravatar.com/rina48', 'displayName': 'Rina'}",
+    }
+    assert SpiderFootCollector._source_url(row) == "https://gravatar.com/rina48"
+    assert SpiderFootCollector._source_url({"event_type": "X"}) == ""

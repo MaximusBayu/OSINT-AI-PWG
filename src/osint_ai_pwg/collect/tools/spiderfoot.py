@@ -13,7 +13,9 @@ request handler.
 
 from __future__ import annotations
 
+import ast
 import json
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -101,6 +103,29 @@ class SpiderFootCollector(Collector):
             return data
         raise RuntimeError(f"unexpected /startscan response: {resp[:120]}")
 
+    @staticmethod
+    def _source_url(row: dict) -> str:
+        """Best-effort proof URL from a SpiderFoot export row.
+
+        SpiderFoot stores the source URL inside `source_data` (a Python dict repr
+        string, e.g. "{'profileUrl': 'https://gravatar.com/...', ...}"). Fall back to
+        the first http(s) URL in the raw string.
+        """
+        sd = row.get("source_data")
+        if isinstance(sd, str) and sd.strip():
+            try:
+                d = ast.literal_eval(sd)
+                if isinstance(d, dict):
+                    url = d.get("profileUrl") or d.get("url") or d.get("link")
+                    if url:
+                        return str(url)
+            except (ValueError, SyntaxError):
+                pass
+            m = re.search(r"https?://[^\s'\"<>]+", sd)
+            if m:
+                return m.group(0).rstrip("'\"")
+        return ""
+
     def _map(self, target_id: str, rows: list[dict]) -> list[Observation]:
         obs: list[Observation] = []
         for row in rows:
@@ -114,7 +139,7 @@ class SpiderFootCollector(Collector):
             field, group = mapped
             obs.append(Observation(
                 target_id, field, group, str(value),
-                f"spiderfoot:{module}", Directness.STATED,
+                f"spiderfoot:{module}", Directness.STATED, url=self._source_url(row),
             ))
         return obs
 

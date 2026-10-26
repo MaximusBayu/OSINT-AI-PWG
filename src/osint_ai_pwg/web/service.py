@@ -129,7 +129,7 @@ def _assemble_result(
         "mode": mode,
         "seed": seed,
         "observations": [
-            {"field": o.field, "value": o.value, "source": o.source} for o in observations
+            {"field": o.field, "value": o.value, "source": o.source, "url": o.url} for o in observations
         ],
         "profile": {
             f: {
@@ -189,15 +189,37 @@ def run_real(
     engine = engine or DemoEngine()
 
     seed = derive_seed(gt)
-    progress(10, "running OSINT collectors (sherlock, holehe, maigret, theharvester, spiderfoot)")
+    progress(5, "collect — starting (all tools in parallel)")
     if collectors is None:
         collectors = build_collectors(
             spiderfoot_url=spiderfoot_url,
             theharvester_url=theharvester_url or None,
         )
-    observations = collect_target(target_id, seed, collectors, timeout_s=600)
-    progress(80, "normalizing + scoring + guessing")
-    return _assemble_result(gt, seed, observations, engine, mode="real")
+
+    total = max(1, len(collectors))
+    state = {"done": 0}
+
+    def on_collector(event: str, name: str, count: int = 0) -> None:
+        if event == "start":
+            progress(10, f"collect — {name} running…")
+        elif event == "done":
+            state["done"] += 1
+            pct = 10 + int(65 * state["done"] / total)
+            progress(pct, f"collect — {name} done ({count} hits)")
+        elif event == "fail":
+            state["done"] += 1
+            pct = 10 + int(65 * state["done"] / total)
+            progress(pct, f"collect — {name} failed")
+        elif event == "timeout":
+            state["done"] += 1
+            pct = 10 + int(65 * state["done"] / total)
+            progress(pct, f"collect — {name} timed out")
+
+    observations = collect_target(target_id, seed, collectors, timeout_s=600, on_collector=on_collector)
+    progress(80, "normalize — dedupe + confidence scoring")
+    result = _assemble_result(gt, seed, observations, engine, mode="real")
+    progress(98, "guess + evaluate — complete")
+    return result
 
 
 def list_targets(roster: dict[str, GroundTruth]) -> list[dict]:

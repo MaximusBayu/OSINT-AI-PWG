@@ -29,7 +29,7 @@ class SherlockCollector(SubprocessCollector):
     def parse(self, stdout: str, seed: dict[str, str], target_id: str) -> list[Observation]:
         user = seed.get("username", "")
         obs: list[Observation] = []
-        for site, _url in _FOUND.findall(stdout):
+        for site, url in _FOUND.findall(stdout):
             obs.append(
                 Observation(
                     target_id=target_id,
@@ -38,6 +38,7 @@ class SherlockCollector(SubprocessCollector):
                     value=user,
                     source=f"sherlock:{site.strip().lower()}",
                     directness=Directness.STATED,
+                    url=url.strip(),
                 )
             )
         return obs

@@ -68,6 +68,23 @@
   .ok { color:var(--ok); font-weight:700; } .no { color:var(--no); font-weight:600; }
   .legend { font-size:12px; color:var(--mut); margin-top:10px; line-height:1.7; }
   .legend code { color:var(--ink); }
+
+  /* live progress */
+  .ptrack { height:10px; background:var(--surface2); border:1px solid var(--line);
+            border-radius:999px; overflow:hidden; }
+  .pfill { height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--ok));
+           transition:width .4s ease; }
+  .pmeta { display:flex; justify-content:space-between; gap:10px; margin-top:8px;
+           font-size:12px; color:var(--mut); }
+  .pmeta #pstage { color:var(--ink); }
+  .steps { font-family:ui-monospace,'Cascadia Code',monospace; font-size:12px;
+           color:var(--mut); max-height:240px; overflow:auto; margin-top:10px;
+           padding-right:4px; }
+  .steps div { padding:2px 0; border-bottom:1px dashed #232a38; }
+  .steps div:last-child { border-bottom:none; }
+  .steps b { color:var(--ink); font-weight:500; }
+  .src-link { text-decoration:none; border-bottom:1px dotted var(--accent); }
+  .src-link:hover { border-bottom-style:solid; }
 </style>
 </head>
 <body>
@@ -114,6 +131,13 @@
     </div>
   </div>
 
+  <div id="progressPanel" class="panel" hidden>
+    <h2>Real scan · live progress</h2>
+    <div class="ptrack"><div class="pfill" id="pbar"></div></div>
+    <div class="pmeta"><span id="pstage">starting…</span><span id="ppct">0%</span></div>
+    <div class="steps" id="psteps"></div>
+  </div>
+
   <div id="out"></div>
 </main>
 
@@ -121,6 +145,7 @@
 const $ = s => document.querySelector(s);
 const pct = x => Math.round(x*100) + '%';
 const esc = s => String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const escAttr = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const tcol = {high:'var(--ok)', medium:'var(--warn)', low:'var(--no)'};
 const CONDLABEL = {C0:'no PII (baseline)', C1:'OSINT PII', C2:'ground-truth PII',
   C3:'OSINT − Identity', C4:'OSINT − Temporal', C5:'OSINT − Location/Contact'};
@@ -147,8 +172,13 @@ function verdict(d){
 function render(d){
   const s = d.profile_summary || {fields:0,avg_confidence:0,tier:'low'};
   const obs = d.observations.length
-    ? d.observations.map(o=>`<tr><td>${esc(o.field)}</td><td><code>${esc(o.value)}</code></td>
-        <td class="mut">${esc(o.source)}</td></tr>`).join('')
+    ? d.observations.map(o=>{
+        const src = o.url
+          ? `<a class="src-link" href="${escAttr(o.url)}" target="_blank" rel="noopener noreferrer">${esc(o.source)} ↗</a>`
+          : esc(o.source);
+        return `<tr><td>${esc(o.field)}</td><td><code>${esc(o.value)}</code></td>
+          <td class="mut">${src}</td></tr>`;
+      }).join('')
     : '<tr><td colspan="3" class="mut">nothing recovered</td></tr>';
   const prof = Object.keys(d.profile).length
     ? Object.entries(d.profile).map(([f,p])=>`<tr><td>${esc(f)}</td><td><code>${esc(p.value)}</code></td>
@@ -169,8 +199,9 @@ function render(d){
         <p><code>${esc(d.target_id)}</code> <span class="pill">${esc(d.footprint_tier)} footprint</span></p>
         <p class="mut" style="margin-top:6px">crack budget: ${d.budget} guesses</p></div>
       <div class="card"><h3>Seed · known start</h3>${kv(d.seed)}</div>
-      <div class="card full"><h3>OSINT observations · simulated recovery</h3>
-        <table><tr><th>field</th><th>value</th><th>source</th></tr>${obs}</table></div>
+      <div class="card full"><h3>OSINT observations · ${d.mode === 'real' ? 'live recovery' : 'simulated recovery'}</h3>
+        <table><tr><th>field</th><th>value</th><th>source</th></tr>${obs}</table>
+        <div class="legend">Sources with a <span class="src-link">link ↗</span> open the live proof (the profile the tool found).</div></div>
       <div class="card full"><h3>Normalized profile
         <span class="pill" style="color:${tcol[s.tier]}">${s.fields} fields · avg ${pct(s.avg_confidence)} · ${s.tier.toUpperCase()}</span></h3>
         <table><tr><th>field</th><th>value</th><th>conf</th><th></th></tr>${prof}</table></div>
@@ -214,20 +245,34 @@ $('#runReal').onclick = async () => {
   const d = await r.json();
   if(!r.ok){ $('#out').innerHTML = `<div class="verdict no">refused: ${esc(d.detail)}</div>`; return; }
   const jid = d.job_id;
+  $('#progressPanel').hidden = false;
+  $('#pbar').style.width = '0%';
+  $('#ppct').textContent = '0%';
+  $('#pstage').textContent = 'queued…';
+  $('#psteps').innerHTML = '';
+  $('#out').innerHTML = '';
   const poll = async () => {
     const j = await (await fetch('/api/job/'+jid)).json();
     if (j.status === 'running') {
-      $('#status').innerHTML = `<span class="mut">real scan… ${j.progress||0}% · ${esc(j.message||'')}</span>`;
-      setTimeout(poll, 1500);
+      const p = j.progress || 0;
+      $('#pbar').style.width = p + '%';
+      $('#ppct').textContent = p + '%';
+      $('#pstage').textContent = j.message || '';
+      const steps = (j.steps || []).slice(-24);
+      $('#psteps').innerHTML = steps.map(s =>
+        `<div><b>${esc(s.message)}</b> <span class="mut">· ${s.pct}%</span></div>`).join('');
+      $('#psteps').scrollTop = $('#psteps').scrollHeight;
+      setTimeout(poll, 1200);
     } else if (j.status === 'done') {
+      $('#progressPanel').hidden = true;
       $('#status').textContent = '';
       render(j.result);
     } else {
+      $('#progressPanel').hidden = true;
       $('#status').textContent = '';
       $('#out').innerHTML = `<div class="verdict no">scan failed: ${esc(j.error||'error')}</div>`;
     }
   };
-  $('#status').textContent = 'starting real scan…';
   poll();
 };
 
