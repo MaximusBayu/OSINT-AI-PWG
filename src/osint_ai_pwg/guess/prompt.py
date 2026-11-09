@@ -44,6 +44,7 @@ FIELD_TO_GROUP: dict[str, FieldGroup] = {
     # Location
     "city": FieldGroup.LOCATION,
     "country": FieldGroup.LOCATION,
+    "address": FieldGroup.LOCATION,
     "location": FieldGroup.LOCATION,         # legacy (pre-split)
     # Contact
     "phone": FieldGroup.CONTACT,
@@ -62,6 +63,7 @@ _PASSLLM_KEY: dict[str, str] = {
     "birthdate": "birth_year",               # legacy: extract leading year
     "city": "city",
     "country": "country",
+    "address": "address",
     "location": "city",                      # legacy
     "phone": "phone",
 }

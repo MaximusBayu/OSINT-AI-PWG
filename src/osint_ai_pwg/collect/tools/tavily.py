@@ -40,6 +40,39 @@ _HANDLE_HOSTS = (
 )
 _JUNK_EMAIL_SUFFIX = ("example.com", "domain.com", "yourdomain.com", "email.com")
 
+_MONTH_NAMES = (
+    "January", "February", "March", "April", "May", "June", "July", "August",
+    "September", "October", "November", "December", "Jan", "Feb", "Mar", "Apr",
+    "Jun", "Jul", "Aug", "Sep", "Sept", "Oct", "Nov", "Dec",
+)
+_MONTH_ALT = "|".join(_MONTH_NAMES)
+_BIRTH_MONTH = re.compile(r"(?:born|birth(?:day|date)?|dob)\D{0,24}(" + _MONTH_ALT + r")\b", re.IGNORECASE)
+_BIRTH_DAY = re.compile(r"(?:born|birth(?:day|date)?|dob)\D{0,24}(?:" + _MONTH_ALT + r")\b[.\s,]{0,4}(\d{1,2})(?!\d)", re.IGNORECASE)
+
+# Best-effort gazetteers (curated, not exhaustive). City/country can only be pulled
+# from a snippet by matching against a known name list.
+_CITY_NAMES = (
+    "jakarta", "bandung", "surabaya", "medan", "semarang", "yogyakarta", "makassar",
+    "palembang", "depok", "tangerang", "bekasi", "bogor", "malang", "padang", "denpasar",
+    "balikpapan", "banjarmasin", "surakarta", "solo", "pekanbaru", "samarinda",
+    "tasikmalaya", "cirebon", "pontianak", "manado", "batam", "ambon", "kupang",
+    "mataram", "jambi", "bengkulu", "serang", "new york", "los angeles", "san francisco",
+    "chicago", "london", "paris", "berlin", "tokyo", "singapore", "kuala lumpur",
+    "sydney", "melbourne", "amsterdam", "dubai", "seoul", "bangkok", "hong kong",
+    "toronto", "vancouver", "moscow", "mumbai", "delhi", "beijing", "shanghai",
+    "taipei", "manila", "brisbane", "perth", "auckland",
+)
+_COUNTRY_NAMES = (
+    "indonesia", "malaysia", "singapore", "united states", "australia", "united kingdom",
+    "england", "canada", "germany", "france", "netherlands", "japan", "china", "india",
+    "south korea", "thailand", "vietnam", "philippines", "brazil", "russia", "italy",
+    "spain", "switzerland", "sweden", "norway", "denmark", "finland", "ireland",
+    "new zealand", "saudi arabia", "united arab emirates", "qatar",
+)
+_CITY_RE = re.compile(r"\b(" + "|".join(re.escape(c) for c in _CITY_NAMES) + r")\b", re.IGNORECASE)
+_COUNTRY_RE = re.compile(r"\b(" + "|".join(re.escape(c) for c in _COUNTRY_NAMES) + r")\b", re.IGNORECASE)
+_ADDRESS = re.compile(r"\b(?:address|alamat)\b[:\s]{0,4}([A-Za-z0-9][^|;\n]{6,60})", re.IGNORECASE)
+
 
 def _distinctive_tokens(name: str) -> set[str]:
     """The surname token (last word) — the identity gate for name matching.
@@ -159,6 +192,23 @@ class TavilyCollector(Collector):
                 handle = m.group(1).rstrip(".")
                 if handle.lower() != seed_username:
                     obs.append(self._o(target_id, "username", FieldGroup.IDENTITY, handle, src, url))
+
+        # birth month / day (from a born/birthday context)
+        for m in set(_BIRTH_MONTH.findall(text)):
+            obs.append(self._o(target_id, "birth_month", FieldGroup.TEMPORAL, m.capitalize(), src, url))
+        for d in set(_BIRTH_DAY.findall(text)):
+            if 1 <= int(d) <= 31:
+                obs.append(self._o(target_id, "birth_day", FieldGroup.TEMPORAL, d, src, url))
+
+        # city / country (gazetteer match)
+        for city in set(_CITY_RE.findall(text)):
+            obs.append(self._o(target_id, "city", FieldGroup.LOCATION, city.title(), src, url))
+        for country in set(_COUNTRY_RE.findall(text)):
+            obs.append(self._o(target_id, "country", FieldGroup.LOCATION, country.title(), src, url))
+
+        # address (rare in snippets; conservative "address/alamat" context)
+        for a in set(_ADDRESS.findall(text)):
+            obs.append(self._o(target_id, "address", FieldGroup.LOCATION, a.strip(), src, url))
 
         return obs
 

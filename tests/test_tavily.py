@@ -87,3 +87,24 @@ def test_source_url_is_kept() -> None:
     assert obs
     assert all(o.url == "https://blog.example.com/me" for o in obs)
     assert all(o.source.startswith("tavily:") for o in obs)
+
+
+def test_discovers_full_schema_fields() -> None:
+    client = _FakeClient({
+        "Maximus Bayu Proudiasto": [
+            {"title": "Maximus Bayu Proudiasto",
+             "url": "https://example.com/me",
+             "content": "Maximus Bayu Proudiasto, born 2002, birthday May 15, "
+                        "from Bandung, Indonesia. Address: Jl. Merdeka No. 10"},
+        ],
+    })
+    c = TavilyCollector(client=client)
+    obs = c.collect("t01", SEED)
+    fields = {o.field: o.value for o in obs}
+    assert fields.get("birth_year") == "2002"
+    assert fields.get("birth_month") == "May"
+    assert fields.get("birth_day") == "15"
+    assert fields.get("city") == "Bandung"
+    assert fields.get("country") == "Indonesia"
+    assert fields.get("address") == "Jl. Merdeka No. 10"
+    assert all(o.directness == Directness.INFERRED for o in obs)
