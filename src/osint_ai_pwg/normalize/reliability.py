@@ -18,6 +18,7 @@ SOURCE_GRADE: dict[str, str] = {
     "github": "B",        # verified profile data
     "theharvester": "C",
     "spiderfoot": "C",
+    "tavily": "D",         # open-web search discovery — opportunistic inference, can be a wrong person
 }
 DEFAULT_GRADE = "D"
 

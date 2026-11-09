@@ -26,6 +26,7 @@ dev = [
 ]
 analysis = [
     "matplotlib>=3.8",
+    "networkx>=3.2",
 ]
 web = [
     "fastapi>=0.110",

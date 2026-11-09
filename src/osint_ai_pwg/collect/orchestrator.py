@@ -41,21 +41,25 @@ def collect_target(
         return []
     on_collector = on_collector or (lambda *a, **k: None)
     results: list[Observation] = []
-    with ThreadPoolExecutor(max_workers=len(collectors)) as ex:
-        fut_map = {ex.submit(c.collect, target_id, seed): c for c in collectors}
-        for c in collectors:
-            on_collector("start", c.name)
-        try:
-            for fut in as_completed(fut_map, timeout=timeout_s):
-                c = fut_map[fut]
-                try:
-                    obs = fut.result()
-                    results.extend(obs)
-                    on_collector("done", c.name, len(obs))
-                except Exception:  # collector error -> skip this collector
-                    on_collector("fail", c.name)
-        except TimeoutError:  # remaining collectors still running -> drop them
-            for fut, c in fut_map.items():
-                if not fut.done():
-                    on_collector("timeout", c.name)
+    ex = ThreadPoolExecutor(max_workers=len(collectors))
+    fut_map = {ex.submit(c.collect, target_id, seed): c for c in collectors}
+    for c in collectors:
+        on_collector("start", c.name)
+    try:
+        for fut in as_completed(fut_map, timeout=timeout_s):
+            c = fut_map[fut]
+            try:
+                obs = fut.result()
+                results.extend(obs)
+                on_collector("done", c.name, len(obs))
+            except Exception:  # collector error -> skip this collector
+                on_collector("fail", c.name)
+    except TimeoutError:  # remaining collectors still running -> drop them
+        for fut, c in fut_map.items():
+            if not fut.done():
+                on_collector("timeout", c.name)
+    finally:
+        # Never block the job on a hung tool. Its own subprocess timeout reaps it;
+        # waiting here is what pinned the UI at 60% for ten minutes.
+        ex.shutdown(wait=False, cancel_futures=True)
     return _dedupe(results)

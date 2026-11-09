@@ -5,7 +5,7 @@ COPY src/ /app/src/
 RUN pip install --no-cache-dir '.[web]'
 # OSINT subprocess tools the collectors shell out to (sherlock/holehe/maigret/h8mail).
 # SpiderFoot + theHarvester are separate containers reached over HTTP.
-RUN pip install --no-cache-dir sherlock-project holehe maigret h8mail
+RUN pip install --no-cache-dir sherlock-project holehe maigret h8mail nexfil ghunt instaloader toutatis tavily-python
 RUN python -m osint_ai_pwg.personas.generate -n 15 --out /app/data/ground_truth
 EXPOSE 8000
 CMD ["uvicorn", "osint_ai_pwg.web.app:app", "--host", "0.0.0.0", "--port", "8000"]

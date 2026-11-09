@@ -107,6 +107,6 @@ def test_run_real_uses_injected_collectors() -> None:
 
     roster = _roster()
     tid = next(iter(roster))
-    out = run_real(tid, roster, "https://sf.example", collectors=[_Fake()])
+    out = run_real(tid, roster, "https://sf.example", collectors=[_Fake()], verify_links=False)
     assert out["mode"] == "real"
     assert any(o["source"] == "fake:src" for o in out["observations"])

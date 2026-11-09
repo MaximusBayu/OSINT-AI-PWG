@@ -1,0 +1,5 @@
+FROM osint-pwg-web:latest
+WORKDIR /app
+COPY pyproject.toml README.md /app/
+COPY src/ /app/src/
+RUN pip install --no-cache-dir --no-deps .

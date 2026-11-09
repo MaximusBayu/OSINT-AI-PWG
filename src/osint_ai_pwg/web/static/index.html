@@ -103,8 +103,11 @@
       <select id="target"></select>
       <button class="primary" id="run">Run (demo)</button>
       <button class="ghost" id="runReal" hidden>Run — REAL OSINT</button>
+      <button class="ghost" id="passllmLive">⚡ PassLLM live</button>
       <button class="ghost" id="toggleAdd">＋ Add self-target</button>
       <button class="ghost" id="togglePassllm">⇪ Load PassLLM results</button>
+      <button class="ghost" id="viewGraph">◈ Entity graph</button>
+      <button class="ghost" id="loadLast">↻ Last run</button>
       <span id="status" class="mut"></span>
     </div>
   </div>
@@ -136,11 +139,40 @@
     <h2>Load real PassLLM results</h2>
     <div class="banner warn">Paste JSON from <b>Colab</b> (<code>run_matrix.py</code>). Format:
       <code>{"target_id":"max","conditions":{"C2":[{"password":"…","confidence":0.8}]}}</code>.</div>
+    <div class="controls" style="margin-bottom:10px">
+      <input type="file" id="passllmFile" accept=".json,application/json">
+      <span id="passllmFileStatus" class="mut"></span>
+    </div>
     <textarea id="passllmJson" rows="8" style="width:100%;background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:ui-monospace,monospace;font-size:12px"></textarea>
     <div class="controls" style="margin-top:10px">
       <button class="primary" id="importPassllm">Import</button>
       <span id="passllmStatus" class="mut"></span>
     </div>
+  </div>
+
+  <div id="passllmLiveCard" class="panel" hidden>
+    <h2>PassLLM · live GPU</h2>
+    <div class="banner">Qwen3-4B + LoRA on the attached GPU. Input is the C2 profile (OSINT-derived), the same object the offline matrix uses.</div>
+    <div class="controls">
+      <label>Mode <select id="plMode">
+        <option value="superfast">superfast</option>
+        <option value="fast" selected>fast</option>
+        <option value="standard">standard</option>
+        <option value="deep">deep</option>
+      </select></label>
+      <label>Runs <input id="plRuns" type="number" min="1" max="50" value="3" style="width:70px"></label>
+      <button class="primary" id="plGo">Generate</button>
+      <span id="plStatus" class="mut"></span>
+    </div>
+    <div id="plOut"></div>
+  </div>
+
+  <div id="graphPanel" class="panel" hidden>
+    <h2 style="display:flex;align-items:center;gap:10px">Entity graph
+      <span id="graphOrigin" class="pill"></span>
+      <a id="graphNewTab" class="mut" href="#" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px">open ↗</a>
+    </h2>
+    <iframe id="graphFrame" title="Entity graph" style="width:100%;height:540px;border:1px solid var(--line);border-radius:8px;background:#1b1b1b"></iframe>
   </div>
 
   <div id="progressPanel" class="panel" hidden>
@@ -253,16 +285,83 @@ function render(d){
 $('#toggleAdd').onclick = () => { $('#addCard').hidden = !$('#addCard').hidden; };
 $('#togglePassllm').onclick = () => { $('#passllmCard').hidden = !$('#passllmCard').hidden; };
 
-$('#importPassllm').onclick = async () => {
-  let payload;
-  try { payload = JSON.parse($('#passllmJson').value); }
-  catch(e) { $('#passllmStatus').innerHTML = '<span class="no">invalid JSON</span>'; return; }
+$('#viewGraph').onclick = () => {
+  const id = $('#target').value;
+  if (!id) return;
+  const url = '/targets/' + encodeURIComponent(id) + '/graph';
+  $('#graphPanel').hidden = false;
+  $('#graphFrame').src = url;
+  $('#graphNewTab').href = url;
+  $('#graphPanel').scrollIntoView({behavior:'smooth', block:'start'});
+};
+
+$('#loadLast').onclick = async () => {
+  const id = $('#target').value;
+  if (!id) return;
+  const r = await fetch('/api/runs/' + encodeURIComponent(id));
+  if (!r.ok) { $('#status').textContent = 'no saved run for ' + id; return; }
+  const d = await r.json();
+  render(d);
+  $('#status').textContent = 'loaded saved run' + (d.saved_at ? ' · ' + new Date(d.saved_at).toLocaleString() : '');
+};
+
+$('#passllmLive').onclick = () => {
+  const card = $('#passllmLiveCard');
+  card.hidden = !card.hidden;
+  if (!card.hidden) card.scrollIntoView({behavior:'smooth', block:'start'});
+};
+
+$('#plGo').onclick = async () => {
+  const id = $('#target').value;
+  if (!id) return;
+  const mode = $('#plMode').value;
+  const runs = Math.max(1, parseInt($('#plRuns').value || '3', 10));
+  const st = $('#plStatus'), out = $('#plOut');
+  st.textContent = 'running on GPU — first call loads the model…';
+  out.innerHTML = '';
+  try {
+    const r = await fetch('/api/passllm/guess', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({target_id:id, mode, runs})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || r.statusText);
+    st.innerHTML = `<span class="ok">${d.count} guesses</span> · ${d.elapsed_s}s · ${esc(d.mode)} · ${d.runs} runs`;
+    const rows = d.guesses.slice(0, 50).map((g,i) =>
+      `<tr><td>${i+1}</td><td><code>${esc(g.password)}</code></td><td>${g.score ?? ''}</td><td>${g.confidence ?? ''}</td></tr>`).join('');
+    out.innerHTML = `<table><tr><th>#</th><th>password</th><th>score</th><th>conf</th></tr>${rows}</table>`;
+  } catch (e) {
+    st.innerHTML = `<span class="no">error:</span> ${esc(e.message)}`;
+  }
+};
+
+async function importPassllmPayload(payload) {
   $('#passllmStatus').textContent = 'importing…';
   const r = await fetch('/api/passllm/import', {method:'POST',
     headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
   const d = await r.json();
   if(!r.ok){ $('#passllmStatus').innerHTML = `<span class="no">${esc(d.detail)}</span>`; return; }
   $('#passllmStatus').innerHTML = `<span class="ok">imported</span> ${d.conditions} conditions for <code>${esc(d.target_id)}</code> — re-run to see the real guesses`;
+}
+
+$('#importPassllm').onclick = async () => {
+  let payload;
+  try { payload = JSON.parse($('#passllmJson').value); }
+  catch(e) { $('#passllmStatus').innerHTML = '<span class="no">invalid JSON</span>'; return; }
+  await importPassllmPayload(payload);
+};
+
+$('#passllmFile').onchange = async () => {
+  const f = $('#passllmFile').files && $('#passllmFile').files[0];
+  if (!f) return;
+  try {
+    const text = await f.text();
+    const payload = JSON.parse(text);
+    $('#passllmJson').value = text;
+    $('#passllmFileStatus').textContent = 'loaded ' + f.name;
+    await importPassllmPayload(payload);
+  } catch (e) {
+    $('#passllmStatus').innerHTML = '<span class="no">invalid JSON file</span>';
+  }
 };
 
 $('#create').onclick = async () => {

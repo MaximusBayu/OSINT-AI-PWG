@@ -26,7 +26,7 @@ ReportRunner = Callable[[list[str]], dict]
 def _default_report(cmd: list[str]) -> dict:
     """Run maigret in a temp dir and return its `--json simple` report as a dict."""
     with tempfile.TemporaryDirectory() as td:
-        subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=td)
+        subprocess.run(cmd, capture_output=True, text=True, timeout=75, cwd=td)
         hits = glob.glob(str(Path(td) / "reports" / "report_*_simple.json"))
         if not hits:
             return {}

@@ -17,6 +17,7 @@ def obs_to_dict(o: Observation) -> dict:
         "source": o.source,
         "directness": o.directness.value,
         "collected_at": o.collected_at,
+        "url": o.url,
     }
 
 
@@ -29,6 +30,7 @@ def obs_from_dict(d: dict) -> Observation:
         source=d["source"],
         directness=Directness(d.get("directness", "stated")),
         collected_at=d["collected_at"],
+        url=d.get("url", ""),
     )
 
 

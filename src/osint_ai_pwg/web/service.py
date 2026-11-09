@@ -11,6 +11,8 @@ from pathlib import Path
 from osint_ai_pwg.collect.orchestrator import collect_target
 from osint_ai_pwg.collect.registry import build_collectors
 from osint_ai_pwg.collect.seed import derive_seed
+from osint_ai_pwg.collect.store import save_observations
+from osint_ai_pwg.collect.verify import verify_observations
 from osint_ai_pwg.evaluate.metrics import guess_number
 from osint_ai_pwg.guess.prompt import build_passllm_object
 from osint_ai_pwg.normalize.normalize import normalize
@@ -202,6 +204,8 @@ def run_real(
     theharvester_url: str | None = None,
     collectors: list | None = None,
     real_guesses: dict[str, list[dict]] | None = None,
+    obs_dir: Path | None = None,
+    verify_links: bool = True,
 ) -> dict:
     """Real mode: live OSINT from all wired tools, then normalize -> guess -> evaluate.
 
@@ -246,7 +250,13 @@ def run_real(
             pct = 10 + int(65 * state["done"] / total)
             progress(pct, f"collect — {name} timed out")
 
-    observations = collect_target(target_id, seed, collectors, timeout_s=600, on_collector=on_collector)
+    observations = collect_target(target_id, seed, collectors, timeout_s=120, on_collector=on_collector)
+    if verify_links:
+        progress(76, "verify — checking proof links")
+        observations, dropped, _ = verify_observations(observations)
+        progress(79, f"verify — {len(observations)} kept, {len(dropped)} dropped")
+    if obs_dir is not None:
+        save_observations(target_id, observations, Path(obs_dir))
     progress(80, "normalize — dedupe + confidence scoring")
     result = _assemble_result(gt, seed, observations, engine, mode="real", real_guesses=real_guesses)
     progress(98, "guess + evaluate — complete")

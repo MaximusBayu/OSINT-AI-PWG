@@ -13,11 +13,17 @@ import yaml
 
 from osint_ai_pwg.collect.base import Collector
 from osint_ai_pwg.collect.scrapers import REGION_SCRAPERS
+from osint_ai_pwg.collect.tools.ghunt import GhuntCollector
+from osint_ai_pwg.collect.tools.github_api import GitHubAPICollector
 from osint_ai_pwg.collect.tools.h8mail import H8mailCollector
+from osint_ai_pwg.collect.tools.instaloader import InstaloaderCollector
+from osint_ai_pwg.collect.tools.nexfil import NexfilCollector
+from osint_ai_pwg.collect.tools.toutatis import ToutatisCollector
 from osint_ai_pwg.collect.tools.holehe import HoleheCollector
 from osint_ai_pwg.collect.tools.maigret import MaigretCollector
 from osint_ai_pwg.collect.tools.sherlock import SherlockCollector
 from osint_ai_pwg.collect.tools.spiderfoot import SpiderFootCollector
+from osint_ai_pwg.collect.tools.tavily import TavilyCollector
 from osint_ai_pwg.collect.tools.theharvester import TheHarvesterCollector
 
 _DEFAULT_CONFIG = Path("config/regions.yaml")
@@ -44,10 +50,16 @@ def build_collectors(
     the offline default to the subprocess tools plus region scrapers.
     """
     collectors: list[Collector] = [
+        TavilyCollector(),
         SherlockCollector(runner),
         HoleheCollector(runner),
         MaigretCollector(),
         H8mailCollector(),
+        NexfilCollector(),
+        GitHubAPICollector(),
+        GhuntCollector(),
+        InstaloaderCollector(),
+        ToutatisCollector(),
     ]
     if spiderfoot_url:
         collectors.append(SpiderFootCollector(spiderfoot_url))

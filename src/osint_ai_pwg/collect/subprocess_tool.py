@@ -17,7 +17,7 @@ Runner = Callable[[list[str]], str]
 
 
 def _default_runner(cmd: list[str]) -> str:
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
     return proc.stdout
 
 

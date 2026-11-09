@@ -62,7 +62,7 @@ class SpiderFootCollector(Collector):
     name = "spiderfoot"
 
     def __init__(self, base_url: str, http: HttpClient | None = None,
-                 poll_interval: float = 5.0, timeout_s: float = 600.0) -> None:
+                 poll_interval: float = 5.0, timeout_s: float = 90.0) -> None:
         self.base = base_url.rstrip("/")
         self._http = http or HttpClient()
         self._poll = poll_interval

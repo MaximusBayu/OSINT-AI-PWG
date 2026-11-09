@@ -39,7 +39,7 @@ def _default_report(cmd: list[str]) -> dict:
     """Run h8mail in a temp dir and return its `-j` JSON output as a dict."""
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "h8mail.json"
-        subprocess.run([*cmd, "-j", str(out)], capture_output=True, text=True, timeout=120)
+        subprocess.run([*cmd, "-j", str(out)], capture_output=True, text=True, timeout=45)
         if not out.exists():
             return {}
         return json.loads(out.read_text(encoding="utf-8"))
