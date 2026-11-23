@@ -40,3 +40,7 @@ PassLLM/
 ROADMAP.md
 /docs
 Password_guess_test (2).pdf
+
+# --- C3 validation artifacts: contain ground truth passwords and PII ---
+c3-check/
+c3-results/

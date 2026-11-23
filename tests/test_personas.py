@@ -34,6 +34,14 @@ def test_password_kinds() -> None:
     assert not pw.contains_pii(rnd, flat)
 
 
+def test_birth_year_field_is_used_by_generator() -> None:
+    rng = random.Random(1)
+    flat = {"name": "Rina Persona", "birth_year": "1995"}
+    laden = pw.generate(flat, PasswordKind.PII_LADEN, rng)
+    assert "1995" in laden
+    assert pw.contains_pii(laden, flat)
+
+
 def test_build_targets_stratified_and_valid() -> None:
     targets = build_targets(n=15, seed=20260923)
     assert len(targets) == 15

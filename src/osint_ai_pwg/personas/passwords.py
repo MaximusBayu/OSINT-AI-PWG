@@ -18,7 +18,9 @@ _SYMBOLS = "!@#$%"
 
 
 def _birth_year(pii_flat: dict[str, str]) -> str | None:
-    bd = pii_flat.get("birthdate")
+    # Nine-field profiles store birth_year directly; older four-field fixtures
+    # store birthdate. Read both, otherwise the generator invents a random year.
+    bd = pii_flat.get("birthdate") or pii_flat.get("birth_year")
     return bd[:4] if bd and bd[:4].isdigit() else None
 
 
