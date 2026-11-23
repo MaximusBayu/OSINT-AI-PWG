@@ -17,6 +17,7 @@ from osint_ai_pwg.evaluate.harness import condition_crack_rate
 from osint_ai_pwg.evaluate.metrics import coefficient_of_variation
 from osint_ai_pwg.guess.assemble import build_runs
 from osint_ai_pwg.guess import jsonl, prompt, runner as passllm_runner
+from osint_ai_pwg.guess.expand import expand_candidates
 from osint_ai_pwg.schemas import Condition, GuessRun, NormalizedProfile
 
 # (profiles, condition) -> {target_id: [ranked guesses]}
@@ -39,19 +40,28 @@ def run_matrix(
 
 
 def make_passllm_engine(
-    weights_file: Path, runner=None, mode: str = "fast", base_only: bool = False
+    weights_file: Path,
+    runner=None,
+    mode: str = "fast",
+    base_only: bool = False,
+    expand: bool = False,
+    project: bool = False,
 ) -> Engine:
     """Real engine: one PassLLM invocation per target (app.py is single-target).
 
     Writes one JSON object per profile, invokes app.py, and parses the ranked results
     file. base_only=True runs the raw base model (condition C0b) via `--base`, which
     needs the app.py patch documented in guess/runner.py.
+
+    expand=True prepends the deterministic PII patterns from guess.expand to each
+    target's candidates. The PassLLM-only ranking stays the anchor; use the hybrid
+    only as a separate condition so the two are not mixed in the same comparison.
     """
 
     def engine(profiles: list[NormalizedProfile], condition: Condition) -> dict[str, list[str]]:
         guesses_by_id: dict[str, list[str]] = {}
         for prof in profiles:
-            obj = prompt.build_passllm_object(prof, condition)
+            obj = prompt.build_passllm_object(prof, condition, project_to_trained=project)
             with tempfile.TemporaryDirectory() as td:
                 in_path = Path(td) / "target.jsonl"
                 jsonl.write_single(obj, in_path)
@@ -59,7 +69,10 @@ def make_passllm_engine(
                     in_path, weights_file, runner=runner, mode=mode, base_only=base_only
                 )
                 parsed = passllm_runner.parse_output(raw, [prof.target_id])
-            guesses_by_id[prof.target_id] = parsed.get(prof.target_id, [])
+            guesses = parsed.get(prof.target_id, [])
+            if expand:
+                guesses = list(dict.fromkeys(expand_candidates(prof, condition) + guesses))
+            guesses_by_id[prof.target_id] = guesses
         return guesses_by_id
 
     return engine

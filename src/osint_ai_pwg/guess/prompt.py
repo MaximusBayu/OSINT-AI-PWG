@@ -66,7 +66,14 @@ _PASSLLM_KEY: dict[str, str] = {
     "address": "address",
     "location": "city",                      # legacy
     "phone": "phone",
+    "sister_pw": "sister_pw",
 }
+
+# PassLLM's synthetic training data fills only these four keys. The other five
+# OSINT fields are in Config.schema_defaults but were never populated during
+# training, so sending them makes the prompt out-of-distribution. project=True
+# keeps only the trained keys; the full nine-field object stays the default.
+_PASSLLM_TRAINED_KEYS = frozenset({"name", "birth_year", "username", "sister_pw"})
 
 
 def _to_birth_year(value: str) -> str:
@@ -74,11 +81,19 @@ def _to_birth_year(value: str) -> str:
     return value[:4] if len(value) >= 4 and value[:4].isdigit() else value
 
 
-def build_passllm_object(profile: NormalizedProfile, condition: Condition) -> dict[str, str]:
+def build_passllm_object(
+    profile: NormalizedProfile,
+    condition: Condition,
+    project_to_trained: bool = False,
+) -> dict[str, str]:
     """Build the PassLLM input dict for one (profile, condition).
 
     Empty dict for the no-PII conditions (C0, C1). C4a-C4d drop one group. Everything
     else (C2, C0b, C3, C5) sends the full profile.
+
+    project_to_trained=True keeps only the four keys PassLLM was actually trained on
+    (name, birth_year, username, sister_pw). Use it to test whether the extra OSINT
+    fields are helping or diluting the prompt.
     """
     if condition in _NO_PII:
         return {}
@@ -91,6 +106,8 @@ def build_passllm_object(profile: NormalizedProfile, condition: Condition) -> di
             continue
         key = _PASSLLM_KEY.get(name)
         if key is None:                       # unknown field, no engine slot
+            continue
+        if project_to_trained and key not in _PASSLLM_TRAINED_KEYS:
             continue
         obj[key] = _to_birth_year(pf.value) if name == "birthdate" else pf.value
     return obj
