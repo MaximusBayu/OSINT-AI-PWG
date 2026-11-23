@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1420" font-family="IBM Plex Sans, Segoe UI, sans-serif">
+<rect width="1100" height="1420" fill="white"/>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#5b6678"/></marker><marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#d64545"/></marker><marker id="as" markerWidth="10" markerHeight="10" refX="0" refY="3" orient="auto"><path d="M8,0 L0,3 L8,6 Z" fill="#5b6678"/></marker></defs>
+<text x="40" y="42" font-size="18" font-weight="600" fill="#16233d">OSINT-AI-PWG  -  Data Flow Diagram (Level 1)</text>
+<rect x="600" y="28" width="22" height="16" rx="6" fill="#dce9ff" stroke="#3b6fd4" stroke-width="2"/>
+<text x="630" y="41" font-size="12" fill="#16233d">Process</text>
+<rect x="750" y="28" width="22" height="16" rx="0" fill="#fff1d6" stroke="#b9892f" stroke-width="2"/>
+<text x="780" y="41" font-size="12" fill="#16233d">Data store</text>
+<rect x="900" y="28" width="22" height="16" rx="0" fill="#e8edf4" stroke="#51607a" stroke-width="2"/>
+<text x="930" y="41" font-size="12" fill="#16233d">External entity</text>
+<text x="40" y="1404" font-size="11" fill="#5b6678">* OSINT sources: Sherlock, Holehe, theHarvester, SpiderFoot, LinkedIn/GitHub scrapers</text>
+<path d="M 280,110 L 400,110" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 550,142 L 550,201" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 550,259 L 550,318" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 280,350 L 400,350" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)" marker-start="url(#as)"/>
+<path d="M 265,590 L 400,364" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 265,590 L 400,830" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 550,382 L 550,441" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 550,499 L 550,558" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 550,622 L 550,681" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 550,739 L 550,798" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 550,862 L 550,928" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 820,960 L 700,960" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)" marker-start="url(#as)"/>
+<path d="M 550,992 L 550,1051" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 550,1109 L 550,1168" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 550,1232 L 550,1291" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 700,230 L 770,230 L 770,830 L 700,830" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 700,240 L 800,240 L 800,1192 L 700,1192" fill="none" stroke="#d64545" stroke-width="2" marker-end="url(#ar)" stroke-dasharray="10 7"/>
+<path d="M 820,1200 L 700,1210" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<path d="M 400,1200 L 25,1200 L 25,142 L 160,142" fill="none" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+<text x="340" y="70" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">self-target + pw</text>
+<text x="556" y="292" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">seed  (no password)</text>
+<text x="340" y="342" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">queries / public hits</text>
+<text x="332" y="469" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">region scrapers</text>
+<text x="332" y="726" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">conditions, budgets, seeds</text>
+<text x="556" y="899" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">per-condition PII, JSONL  (no password)</text>
+<text x="760" y="952" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">PII in -&gt; candidates out</text>
+<text x="556" y="1266" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">crack rate, CI, RQ1/2/3</text>
+<text x="812" y="520" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">ground-truth PII (C3)</text>
+<text x="812" y="1040" font-size="11" fill="#d64545" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">answer key (scoring only)</text>
+<text x="760" y="1197" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">C6 reference</text>
+<text x="70" y="1120" font-size="11" fill="#5b6678" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3">results / verdict</text>
+<rect x="400.0" y="78.0" width="300" height="64" rx="16" fill="#dce9ff" stroke="#3b6fd4" stroke-width="2"/>
+<text x="550" y="115" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">1.0  Generate / register targets</text>
+<path d="M400.0,207.0 a150.0,6.0 0 0 1 300,0 v46 a150.0,6.0 0 0 1 -300,0 Z" fill="#fff1d6" stroke="#b9892f" stroke-width="2"/>
+<path d="M400.0,207.0 a150.0,6.0 0 0 0 300,0" fill="none" stroke="#b9892f" stroke-width="2"/>
+<text x="550" y="241" font-size="13" font-weight="500" fill="#16233d" text-anchor="middle">D1  Ground truth  (PII + password)</text>
+<rect x="400.0" y="318.0" width="300" height="64" rx="16" fill="#dce9ff" stroke="#3b6fd4" stroke-width="2"/>
+<text x="550" y="355" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">2.0  Collect OSINT</text>
+<path d="M400.0,447.0 a150.0,6.0 0 0 1 300,0 v46 a150.0,6.0 0 0 1 -300,0 Z" fill="#fff1d6" stroke="#b9892f" stroke-width="2"/>
+<path d="M400.0,447.0 a150.0,6.0 0 0 0 300,0" fill="none" stroke="#b9892f" stroke-width="2"/>
+<text x="550" y="481" font-size="13" font-weight="500" fill="#16233d" text-anchor="middle">D2  Observations</text>
+<rect x="400.0" y="558.0" width="300" height="64" rx="16" fill="#dce9ff" stroke="#3b6fd4" stroke-width="2"/>
+<text x="550" y="595" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">3.0  Normalize + score confidence</text>
+<path d="M400.0,687.0 a150.0,6.0 0 0 1 300,0 v46 a150.0,6.0 0 0 1 -300,0 Z" fill="#fff1d6" stroke="#b9892f" stroke-width="2"/>
+<path d="M400.0,687.0 a150.0,6.0 0 0 0 300,0" fill="none" stroke="#b9892f" stroke-width="2"/>
+<text x="550" y="721" font-size="13" font-weight="500" fill="#16233d" text-anchor="middle">D3  Normalized profiles</text>
+<rect x="400.0" y="798.0" width="300" height="64" rx="16" fill="#dce9ff" stroke="#3b6fd4" stroke-width="2"/>
+<text x="550" y="835" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">4.0  Build PassLLM input</text>
+<rect x="400.0" y="928.0" width="300" height="64" rx="16" fill="#dce9ff" stroke="#3b6fd4" stroke-width="2"/>
+<text x="550" y="965" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">5.0  Guess passwords</text>
+<path d="M400.0,1057.0 a150.0,6.0 0 0 1 300,0 v46 a150.0,6.0 0 0 1 -300,0 Z" fill="#fff1d6" stroke="#b9892f" stroke-width="2"/>
+<path d="M400.0,1057.0 a150.0,6.0 0 0 0 300,0" fill="none" stroke="#b9892f" stroke-width="2"/>
+<text x="550" y="1091" font-size="13" font-weight="500" fill="#16233d" text-anchor="middle">D4  Guess runs</text>
+<rect x="400.0" y="1168.0" width="300" height="64" rx="16" fill="#dce9ff" stroke="#3b6fd4" stroke-width="2"/>
+<text x="550" y="1205" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">6.0  Evaluate + report</text>
+<path d="M400.0,1297.0 a150.0,6.0 0 0 1 300,0 v46 a150.0,6.0 0 0 1 -300,0 Z" fill="#fff1d6" stroke="#b9892f" stroke-width="2"/>
+<path d="M400.0,1297.0 a150.0,6.0 0 0 0 300,0" fill="none" stroke="#b9892f" stroke-width="2"/>
+<text x="550" y="1331" font-size="13" font-weight="500" fill="#16233d" text-anchor="middle">D5  Reports</text>
+<rect x="40.0" y="78.0" width="240" height="64" fill="#e8edf4" stroke="#51607a" stroke-width="2"/>
+<text x="160" y="106" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">Researcher</text>
+<text x="160" y="124" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">(web UI / CLI)</text>
+<rect x="40.0" y="318.0" width="240" height="64" fill="#e8edf4" stroke="#51607a" stroke-width="2"/>
+<text x="160" y="355" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">OSINT sources *</text>
+<path d="M55.0,568.0 a105.0,6.0 0 0 1 210,0 v44 a105.0,6.0 0 0 1 -210,0 Z" fill="#fff1d6" stroke="#b9892f" stroke-width="2"/>
+<path d="M55.0,568.0 a105.0,6.0 0 0 0 210,0" fill="none" stroke="#b9892f" stroke-width="2"/>
+<text x="160" y="601" font-size="13" font-weight="500" fill="#16233d" text-anchor="middle">Config (yaml)</text>
+<rect x="820.0" y="928.0" width="240" height="64" fill="#e8edf4" stroke="#51607a" stroke-width="2"/>
+<text x="940" y="956" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">PassLLM engine</text>
+<text x="940" y="974" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">Qwen3-4B + LoRA</text>
+<rect x="820.0" y="1168.0" width="240" height="64" fill="#e8edf4" stroke="#51607a" stroke-width="2"/>
+<text x="940" y="1205" font-size="14" font-weight="600" fill="#16233d" text-anchor="middle">Hashcat (C6 ref)</text>
+</svg>
