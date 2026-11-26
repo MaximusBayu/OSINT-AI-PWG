@@ -29,6 +29,28 @@ def _first_name(pii_flat: dict[str, str]) -> str | None:
     return name.split()[0] if name else None
 
 
+def _patterns(token: str, year: str | None, sym: str, rng: random.Random) -> list[str]:
+    """Password shapes this persona can actually produce from its own PII.
+
+    A persona with no birth year has no year to embed. Inventing one puts a number in
+    the ground truth that no collection could ever recover, which makes the record
+    uncrackable by construction.
+    """
+    digits = str(rng.randint(10, 9999))
+    if year:
+        return [
+            f"{token}{year}",
+            f"{token.capitalize()}{year}{sym}",
+            f"{token}{sym}{year}",
+            f"{token.lower()}{digits}",
+        ]
+    return [
+        f"{token.lower()}{digits}",
+        f"{token.capitalize()}{digits}{sym}",
+        f"{token}{sym}{digits}",
+    ]
+
+
 def generate(pii_flat: dict[str, str], kind: PasswordKind, rng: random.Random) -> str:
     """Return a password of the requested kind for a persona described by `pii_flat`."""
     if kind is PasswordKind.RANDOM:
@@ -37,13 +59,8 @@ def generate(pii_flat: dict[str, str], kind: PasswordKind, rng: random.Random) -
 
     # PII-laden: guarantee at least one PII token is present.
     token = _first_name(pii_flat) or _birth_year(pii_flat) or "user"
-    year = _birth_year(pii_flat) or str(rng.randint(70, 99))
-    patterns = [
-        f"{token}{year}",
-        f"{token.capitalize()}{year}{rng.choice(_SYMBOLS)}",
-        f"{token}{rng.choice(_SYMBOLS)}{year}",
-        f"{token.lower()}{rng.randint(1, 999)}",
-    ]
+    year = _birth_year(pii_flat)
+    patterns = _patterns(token, year, rng.choice(_SYMBOLS), rng)
     return rng.choice(patterns)
 
 

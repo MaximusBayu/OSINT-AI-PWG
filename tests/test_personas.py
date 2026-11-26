@@ -71,3 +71,29 @@ def test_validate_catches_missing_password() -> None:
         pii={"Identity": {"name": "A"}}, password="", password_kind=PasswordKind.RANDOM,
     )
     assert "empty password" in validate(gt)
+
+def test_sparse_persona_gets_no_invented_year() -> None:
+    """A persona without a birth date must not get a year in its password.
+
+    Sparse personas carry only the Identity group by design, so there is no birth year
+    to embed. The old fallback drew a random year from 70 to 99, which produced a
+    ground truth that no collection and no engine could ever recover.
+    """
+    flat = {"name": "Maya Persona", "username": "maya42"}
+    assert pw._birth_year(flat) is None
+
+    shapes = pw._patterns("Maya", None, "!", random.Random(1))
+    assert len(shapes) == 3
+    assert all("maya" in shape.lower() for shape in shapes)
+
+    rng = random.Random(7)
+    for _ in range(200):
+        generated = pw.generate(flat, PasswordKind.PII_LADEN, rng)
+        assert "maya" in generated.lower()
+        assert pw.contains_pii(generated, flat)
+
+
+def test_persona_with_birth_year_still_gets_year_shapes() -> None:
+    shapes = pw._patterns("Maya", "1983", "!", random.Random(1))
+    assert any("1983" in shape for shape in shapes)
+    assert len(shapes) == 4
